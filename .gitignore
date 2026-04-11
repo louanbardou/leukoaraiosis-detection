@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environments (too large, installed separately)
+../leuko_env/
+
+# Data outputs (large binary files)
+*.nii.gz
+*.nii
+*.pt
+*.pth
+manifest.csv
+logs/
+runs/
+heatmaps/
+figures/
+
+# Misc
+.DS_Store
+*.log
+*.tmp
