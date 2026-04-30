@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leukoaraiosis Detection — Architecture Choices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222535;
+    --border: #2e3147;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --chosen: #6366f1;
+    --rejected: #374151;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1d27 50%, #0f172a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 80px 40px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #e2e8f0, #6366f1, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    max-width: 700px;
+    margin: 0 auto 32px;
+  }
+  .hero-tags {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .tag.accent { border-color: var(--accent); color: #a5b4fc; background: rgba(99,102,241,0.1); }
+  .tag.green { border-color: var(--green); color: #6ee7b7; background: rgba(16,185,129,0.1); }
+  .tag.cyan { border-color: var(--accent3); color: #67e8f9; background: rgba(6,182,212,0.1); }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15,17,23,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 16px 18px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  /* ── Section ── */
+  .section {
+    padding: 72px 0 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .section-number {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .section-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .section-subtitle {
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-size: 0.95rem;
+  }
+
+  /* ── Decision Funnel ── */
+  .funnel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin: 32px 0;
+  }
+  .funnel-level {
+    position: relative;
+  }
+  .funnel-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .options-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .option {
+    flex: 1;
+    min-width: 160px;
+    border-radius: 10px;
+    padding: 16px 20px;
+    border: 1px solid;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .option.chosen {
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.1);
+  }
+  .option.chosen::after {
+    content: '✓ CHOSEN';
+    position: absolute;
+    top: -10px; right: 12px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .option.rejected {
+    border-color: var(--border);
+    background: var(--surface);
+    opacity: 0.55;
+  }
+  .option.rejected::after {
+    content: '✗';
+    position: absolute;
+    top: -10px; right: 12px;
+    background: var(--rejected);
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .option-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+  .option.chosen .option-name { color: #a5b4fc; }
+  .option.rejected .option-name { color: var(--text-dim); }
+  .option-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .funnel-arrow {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    margin: 4px 0;
+  }
+
+  /* ── Constraint Box ── */
+  .constraint {
+    display: flex;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+  }
+  .constraint-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+  .constraint-title { font-weight: 600; font-size: 0.9rem; color: #fcd34d; margin-bottom: 4px; }
+  .constraint-body { font-size: 0.88rem; color: var(--text-muted); }
+
+  /* ── Math Box ── */
+  .math-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+  .math-box .math-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent3);
+    margin-bottom: 12px;
+  }
+  .math-box .math-explain {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+
+  /* ── Why Box ── */
+  .why-box {
+    background: rgba(99,102,241,0.07);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .why-box .why-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .why-box p { font-size: 0.9rem; color: var(--text-muted); }
+
+  /* ── Code ── */
+  .code-block {
+    background: #0d0f18;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #c9d1d9;
+  }
+  .code-block .kw { color: #ff79c6; }
+  .code-block .fn { color: #50fa7b; }
+  .code-block .num { color: #bd93f9; }
+  .code-block .str { color: #f1fa8c; }
+  .code-block .cm { color: #6272a4; font-style: italic; }
+  .code-block .cls { color: #8be9fd; }
+
+  /* ── Pipeline Steps ── */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .pipe-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+  .pipe-step:hover { border-color: var(--accent); }
+  .pipe-num {
+    width: 28px; height: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .pipe-content { flex: 1; }
+  .pipe-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; color: var(--text); }
+  .pipe-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+  /* ── Architecture Diagram ── */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 600px;
+  }
+  .arch-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+    flex: 1;
+  }
+  .arch-block.highlight {
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.12);
+  }
+  .arch-block .ab-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .arch-block .ab-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .arch-block .ab-shape {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .arch-arrow {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Phase Timeline ── */
+  .phases-timeline {
+    display: flex;
+    gap: 0;
+    margin: 32px 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .phase-card {
+    flex: 1;
+    padding: 20px;
+    border-right: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .phase-card:last-child { border-right: none; }
+  .phase-card:hover { background: var(--surface2); }
+  .phase-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    letter-spacing: 0.06em;
+  }
+  .ph1 { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+  .ph2 { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+  .ph3 { background: rgba(6,182,212,0.2); color: #67e8f9; }
+  .ph4 { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .ph5 { background: rgba(245,158,11,0.2); color: #fcd34d; }
+  .phase-name { font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; }
+  .phase-desc { font-size: 0.78rem; color: var(--text-muted); }
+
+  /* ── Comparison Table ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 0.88rem;
+  }
+  .compare-table th {
+    text-align: left;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .compare-table td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    vertical-align: top;
+  }
+  .compare-table tr.chosen-row td {
+    background: rgba(99,102,241,0.07);
+    color: var(--text);
+  }
+  .compare-table tr.chosen-row td:first-child {
+    border-left: 3px solid var(--accent);
+  }
+  .check { color: var(--green); font-weight: 700; }
+  .cross { color: var(--red); }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* ── Info Cards ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .info-card .ic-icon { font-size: 1.5rem; margin-bottom: 10px; }
+  .info-card .ic-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 8px; }
+  .info-card .ic-body { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+
+  /* ── Summary Table ── */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin: 20px 0;
+  }
+  .summary-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .summary-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .summary-table td:first-child { font-weight: 600; color: var(--text); }
+  .summary-table td:nth-child(2) {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #a5b4fc;
+  }
+  .summary-table td:last-child { font-size: 0.8rem; }
+
+  /* ── Footnote ── */
+  .footer {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
+  }
+
+  p { margin-bottom: 12px; }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ─────────────── HERO ─────────────── -->
+<div class="hero">
+  <h1>Architecture Decisions</h1>
+  <p>Leukoaraiosis Detection in the ABCD Adolescent Cohort — from first principles to final choices</p>
+  <div class="hero-tags">
+    <span class="tag accent">3D Medical Imaging</span>
+    <span class="tag cyan">Swin UNETR</span>
+    <span class="tag green">Weakly Supervised</span>
+    <span class="tag">Grad-CAM</span>
+    <span class="tag">APLoss</span>
+    <span class="tag">T1w + T2w</span>
+  </div>
+</div>
+
+<!-- ─────────────── NAV ─────────────── -->
+<nav class="nav">
+  <a href="#problem">Problem</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#preprocessing">Preprocessing</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#supervision">Supervision</a>
+  <a href="#loss">Loss &amp; Optimizer</a>
+  <a href="#explainability">Grad-CAM</a>
+  <a href="#phase5">Phase 5</a>
+  <a href="#summary">Summary</a>
+</nav>
+
+<div class="container">
+
+<!-- ─────────────── SECTION 1 — PROBLEM ─────────────── -->
+<section class="section" id="problem">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <div>
+      <div class="section-title">Problem Definition</div>
+      <div class="section-subtitle">What are we trying to detect, and why is it hard?</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="ic-icon">🧠</div>
+      <div class="ic-title">Leukoaraiosis</div>
+      <div class="ic-body">White matter hyperintensities (WMH) visible on T2/FLAIR MRI. Diffuse, bilateral lesions — not a single focal point. Linked to cerebrovascular disease and cognitive decline.</div>
+    </div>
+    <div class="info-card">
+      <div class="ic-icon">👶</div>
+      <div class="ic-title">ABCD Dataset</div>
+      <div class="ic-body">Adolescent Brain Cognitive Development study. ~11,000 subjects, multi-site (21 scanners), T1w + T2w available. Leukoaraiosis rare in this age group (~3–5% positive).</div>
+    </div>
+    <div class="info-card">
+      <div class="ic-icon">⚠️</div>
+      <div class="ic-title">Core Challenges</div>
+      <div class="ic-body">
+        1. <strong>Class imbalance</strong> — ~95% negative<br>
+        2. <strong>No voxel masks</strong> — only image-level labels<br>
+        3. <strong>Multi-site variability</strong> — 21 different scanners<br>
+        4. <strong>3D volumetric data</strong> — memory constraints
+      </div>
+    </div>
+  </div>
+
+  <div class="constraint">
+    <div class="constraint-icon">🔑</div>
+    <div>
+      <div class="constraint-title">Key Constraint #1 — Label Type</div>
+      <div class="constraint-body">We only have <strong>image-level binary labels</strong> (positive / negative). No voxel-level annotations. Any architecture must work under this weak supervision regime.</div>
+    </div>
+  </div>
+  <div class="constraint">
+    <div class="constraint-icon">🔑</div>
+    <div>
+      <div class="constraint-title">Key Constraint #2 — Class Imbalance</div>
+      <div class="constraint-body">Standard accuracy is meaningless. A model that always predicts "negative" achieves ~97% accuracy. We must optimize for <strong>minority-class detection</strong>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 2 — PIPELINE ─────────────── -->
+<section class="section" id="pipeline">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <div>
+      <div class="section-title">Five-Phase Pipeline</div>
+      <div class="section-subtitle">High-level structure before diving into each choice</div>
+    </div>
+  </div>
+
+  <div class="phases-timeline">
+    <div class="phase-card">
+      <div class="phase-tag ph1">Phase 1–2</div>
+      <div class="phase-name">Data Manifest</div>
+      <div class="phase-desc">Build CSV linking subjects to T1w/T2w file paths + labels</div>
+    </div>
+    <div class="phase-card">
+      <div class="phase-tag ph2">Phase 1–3</div>
+      <div class="phase-name">Transforms</div>
+      <div class="phase-desc">Preprocessing pipeline: orient → resample → normalize → crop → augment</div>
+    </div>
+    <div class="phase-card">
+      <div class="phase-tag ph3">Phase 3</div>
+      <div class="phase-name">Classification</div>
+      <div class="phase-desc">Swin UNETR encoder + GAP + MLP head; trained with APLoss + SOAP</div>
+    </div>
+    <div class="phase-card">
+      <div class="phase-tag ph4">Phase 4</div>
+      <div class="phase-name">Grad-CAM</div>
+      <div class="phase-desc">3D heatmaps showing which brain regions drive positive predictions</div>
+    </div>
+    <div class="phase-card">
+      <div class="phase-tag ph5">Phase 5</div>
+      <div class="phase-name">Segmentation</div>
+      <div class="phase-desc">Pseudo-masks from Grad-CAM → fine-tune UNETR decoder for voxel-level segmentation</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 3 — PREPROCESSING ─────────────── -->
+<section class="section" id="preprocessing">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <div>
+      <div class="section-title">Preprocessing Pipeline</div>
+      <div class="section-subtitle">Every step exists for a specific scientific reason</div>
+    </div>
+  </div>
+
+  <div class="pipeline">
+
+    <div class="pipe-step">
+      <div class="pipe-num">1</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Orientation → RAS (Right-Anterior-Superior)</div>
+        <div class="pipe-desc">
+          ABCD data comes from 21 sites with different scanner orientations. Without standardization, "left" in one scan is "right" in another — the model would learn inconsistent anatomy.<br><br>
+          <strong>RAS</strong> is the canonical neuroimaging convention. All scans are reoriented to match it before any other operation.
+        </div>
+      </div>
+    </div>
+
+    <div class="pipe-step">
+      <div class="pipe-num">2</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Resampling → 1 mm Isotropic</div>
+        <div class="pipe-desc">
+          Scanners produce different voxel sizes (e.g. 1×1×1.2 mm, 0.8×0.8×0.8 mm). If T1w and T2w are on different grids, channel concatenation would be misaligned.<br><br>
+          Resampling to a common 1 mm grid ensures <strong>voxel-exact alignment</strong> between T1 and T2 channels. It also means 1 voxel = 1 mm³, enabling direct volume estimation in Phase 4/5.
+        </div>
+        <div class="code-block">
+<span class="cls">Spacingd</span>(keys=[<span class="str">"t1w"</span>, <span class="str">"t2w"</span>], pixdim=(<span class="num">1.0</span>, <span class="num">1.0</span>, <span class="num">1.0</span>), mode=<span class="str">"bilinear"</span>)
+        </div>
+      </div>
+    </div>
+
+    <div class="pipe-step">
+      <div class="pipe-num">3</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Two-Step Intensity Normalization</div>
+        <div class="pipe-desc">
+          <strong>Step A — Percentile Clipping [1st, 99th] → [0, 1]</strong><br>
+          MRI images have scanner-specific outlier intensities (bright eyeballs, RF coil hotspots) that would dominate gradient updates. Clipping outside the 1st–99th percentile range removes these before normalizing.
+        </div>
+        <div class="math-box">
+          <div class="math-label">Percentile Clipping</div>
+          \[ x_{\text{clipped}} = \text{clip}\!\left(\frac{x - p_1}{p_{99} - p_1},\ 0,\ 1\right) \]
+          <div class="math-explain">where \(p_1\) and \(p_{99}\) are the 1st and 99th percentile of voxel intensities. Outliers above \(p_{99}\) are clamped to 1; below \(p_1\) are clamped to 0.</div>
+        </div>
+        <div class="pipe-desc">
+          <strong>Step B — Z-score per channel</strong><br>
+          T1w and T2w intensities live on completely different scales (T1: bright = fat/white matter; T2: bright = fluid). Z-scoring each channel independently makes them comparable for the network.
+        </div>
+        <div class="math-box">
+          <div class="math-label">Z-score Normalization</div>
+          \[ x_{\text{norm}} = \frac{x - \mu_{\text{channel}}}{\sigma_{\text{channel}}} \]
+          <div class="math-explain">Applied <em>channel-wise</em> and <em>non-zero only</em> — background voxels (value = 0) are excluded from mean/std computation to avoid bias from the skull-stripped background.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pipe-step">
+      <div class="pipe-num">4</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Foreground Crop → Patch Extraction 96×96×96</div>
+        <div class="pipe-desc">
+          Full brain volumes are ~180×220×180 voxels — far too large to fit in GPU memory.<br><br>
+          <strong>CropForeground</strong> removes air voxels around the skull (T1w-guided), reducing volume to ~150³. <strong>RandSpatialCrop</strong> then extracts a fixed 96³ patch — randomly during training, centered during validation.
+        </div>
+        <div class="constraint">
+          <div class="constraint-icon">💾</div>
+          <div>
+            <div class="constraint-title">Memory Constraint → Patch Size = 96³</div>
+            <div class="constraint-body">The Swin UNETR processes fixed-size inputs. At batch size 4 with 96³ patches, peak VRAM is ~38 GB on an A100. Full volume (180³) would require ~2 TB — infeasible.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pipe-step">
+      <div class="pipe-num">5</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Data Augmentation (Training Only)</div>
+        <div class="pipe-desc">
+          <strong>Spatial:</strong> random flips (p=0.5), 90° rotations (p=0.5), affine transforms (p=0.3 — moderate to avoid extreme distortions).<br><br>
+          <strong>Intensity:</strong> Gaussian noise (p=0.2, σ=0.05), Gaussian blur (p=0.2), random intensity scaling (p=0.3, ±10%).<br><br>
+          These simulate scanner-to-scanner variability. The model learns anatomy, not scanner signatures.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 4 — ARCHITECTURE ─────────────── -->
+<section class="section" id="architecture">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <div>
+      <div class="section-title">Model Architecture</div>
+      <div class="section-subtitle">From all possible model families down to Swin UNETR</div>
+    </div>
+  </div>
+
+  <!-- Level 1 -->
+  <div class="funnel">
+    <div class="funnel-level">
+      <div class="funnel-label">Level 1 — ML Paradigm</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">Classical ML (SVM, RF)</div>
+          <div class="option-desc">Requires hand-crafted features (texture, volume). Cannot learn spatial patterns end-to-end. Fails on raw 3D voxels.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">Deep Learning</div>
+          <div class="option-desc">Learns hierarchical spatial features automatically. State-of-the-art on medical imaging benchmarks. End-to-end from raw voxels to prediction.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="funnel-arrow">▼</div>
+
+    <!-- Level 2 -->
+    <div class="funnel-level">
+      <div class="funnel-label">Level 2 — Dimensionality</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">2D Slice-by-Slice</div>
+          <div class="option-desc">Loses inter-slice context. Leukoaraiosis is a volumetric phenomenon — 2D slices miss continuity across the z-axis.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">2.5D (multi-slice)</div>
+          <div class="option-desc">Partial improvement but still treats z-axis as a stack, not a continuum. Asymmetric receptive fields.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">Full 3D Volumetric</div>
+          <div class="option-desc">Brain is a 3D structure. White matter tracts span all axes. A 3D model captures the full spatial extent of diffuse WMH.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="funnel-arrow">▼</div>
+
+    <!-- Level 3 -->
+    <div class="funnel-level">
+      <div class="funnel-label">Level 3 — Feature Extraction Mechanism</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">3D CNN (e.g. ResNet-3D)</div>
+          <div class="option-desc">Local convolutional kernels. Good for focal lesions. Limited receptive field — cannot model long-range dependencies across white matter tracts without very deep stacks.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">Standard ViT (3D)</div>
+          <div class="option-desc">Full self-attention has O(T²) complexity. For 96³ voxels with patch size 4, T = 13,824 tokens → quadratic cost is prohibitive.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">Swin Transformer (3D)</div>
+          <div class="option-desc">Windowed self-attention — linear complexity in volume size. Shifted windows propagate global context across layers. Designed for hierarchical feature extraction at multiple scales.</div>
+        </div>
+      </div>
+
+      <div class="constraint">
+        <div class="constraint-icon">⚡</div>
+        <div>
+          <div class="constraint-title">Why Transformers over CNNs for WMH?</div>
+          <div class="constraint-body">Leukoaraiosis is <em>diffuse</em> — lesions appear across periventricular and deep white matter simultaneously. Standard CNNs process local patches; a kernel of size 3³ sees 27 voxels. White matter tracts span hundreds of voxels. Swin Transformers compute attention within windows <em>and shift those windows between layers</em>, building global context incrementally.</div>
+        </div>
+      </div>
+
+      <div class="math-box">
+        <div class="math-label">Swin Self-Attention Complexity</div>
+        \[ \Omega(\text{MSA}) = 4hwC^2 + 2(hw)^2C \qquad \text{(standard ViT: } O(T^2) \text{)} \]
+        \[ \Omega(\text{W-MSA}) = 4hwC^2 + 2M^2 hwC \qquad \text{(Swin: } O(T) \text{)} \]
+        <div class="math-explain">where \(h \times w\) = spatial resolution, \(C\) = channels, \(M\) = window size. Swin's complexity is <strong>linear</strong> in the number of tokens \(T = hw\), not quadratic. For 96³ volume this is the difference between feasible and infeasible.</div>
+      </div>
+    </div>
+
+    <div class="funnel-arrow">▼</div>
+
+    <!-- Level 4 -->
+    <div class="funnel-level">
+      <div class="funnel-label">Level 4 — Specific Architecture Variant</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">Swin-B / Swin-L (pure encoder)</div>
+          <div class="option-desc">Classification only — cannot be extended to segmentation later. Would require full retraining for Phase 5.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">TransUNet / SETR</div>
+          <div class="option-desc">Hybrid CNN-Transformer. Good for 2D, not natively designed for 3D. Less established in volumetric medical imaging.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">Swin UNETR</div>
+          <div class="option-desc">Swin encoder + UNETR decoder. The encoder can be used alone for classification (Phases 3–4) and the decoder activated for segmentation (Phase 5) — no weight surgery needed.</div>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-title">The Decoder Investment</div>
+        <p>The full Swin UNETR is instantiated (encoder + decoder) even in Phases 3 and 4 where the decoder is unused. This is intentional: Phase 5 reuses the same object and activates the decoder with the encoder weights already trained. No restructuring, no re-loading. The decoder is a "free option" — zero extra cost during classification, full value during segmentation.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture Diagram -->
+  <div class="arch-diagram">
+    <div style="font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin-bottom:16px;">LeukoBinaryClassifier — Forward Pass</div>
+    <div class="arch-flow">
+      <div class="arch-block">
+        <div class="ab-label">Input</div>
+        <div class="ab-name">T1w + T2w</div>
+        <div class="ab-shape">(B, 2, 96, 96, 96)</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-block highlight">
+        <div class="ab-label">Swin UNETR Encoder</div>
+        <div class="ab-name">4 Stages</div>
+        <div class="ab-shape">f×1→2→4→8→16</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-block highlight">
+        <div class="ab-label">Global Avg Pool</div>
+        <div class="ab-name">GAP 3D</div>
+        <div class="ab-shape">(B, 1536, 1, 1, 1)</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-block highlight">
+        <div class="ab-label">MLP Head</div>
+        <div class="ab-name">LayerNorm→Linear→GELU→Linear</div>
+        <div class="ab-shape">1536 → 256 → 1</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-block">
+        <div class="ab-label">Output</div>
+        <div class="ab-name">Logit</div>
+        <div class="ab-shape">(B, 1) — no sigmoid</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature size math -->
+  <div class="math-box">
+    <div class="math-label">Swin UNETR Feature Dimension at Each Stage (feature_size = 48)</div>
+    \[
+    \begin{array}{lll}
+    \text{Stage 1:} & f \times 1 = 48 \\
+    \text{Stage 2:} & f \times 2 = 96 \\
+    \text{Stage 3:} & f \times 4 = 192 \\
+    \text{Stage 4:} & f \times 8 = 384 \\
+    \text{Bottleneck:} & f \times 16 \times 2 = 1536 & \leftarrow \text{input to GAP}
+    \end{array}
+    \]
+    <div class="math-explain">The bottleneck factor of 32 = 2⁴ (four doublings) × 2 (final projection). With feature_size=48 this gives a 1536-dimensional representation before the classification head.</div>
+  </div>
+
+  <!-- Head Design -->
+  <div class="divider"></div>
+  <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:16px;">Classification Head Design Choices</h3>
+  <table class="compare-table">
+    <tr>
+      <th>Component</th><th>Choice</th><th>Why not the default?</th>
+    </tr>
+    <tr class="chosen-row">
+      <td><strong>Normalization</strong></td>
+      <td>LayerNorm</td>
+      <td>BatchNorm degrades at small batch sizes (B=4 with 3D volumes). LayerNorm normalizes per-sample, not per-batch — stable regardless of batch size.</td>
+    </tr>
+    <tr class="chosen-row">
+      <td><strong>Activation</strong></td>
+      <td>GELU</td>
+      <td>ReLU has a hard zero at x&lt;0 (dying neurons). GELU is smooth near zero — \(\text{GELU}(x) = x \cdot \Phi(x)\) — better gradient flow during early epochs with random weights.</td>
+    </tr>
+    <tr class="chosen-row">
+      <td><strong>Output</strong></td>
+      <td>Raw logit (no sigmoid)</td>
+      <td>APLoss and BCEWithLogitsLoss operate on logits directly. Applying sigmoid inside forward() would force manual unwrapping in the loss — error-prone.</td>
+    </tr>
+    <tr class="chosen-row">
+      <td><strong>Dropout</strong></td>
+      <td>p=0.3 → p=0.15</td>
+      <td>Heavier dropout after the large 1536-dim layer, lighter before the final projection. Reduces co-adaptation without starving the 256-dim layer of signal.</td>
+    </tr>
+  </table>
+
+  <div class="math-box">
+    <div class="math-label">GELU vs ReLU</div>
+    \[
+    \text{ReLU}(x) = \max(0, x)
+    \qquad\qquad
+    \text{GELU}(x) = x \cdot \Phi(x) \approx x \cdot \sigma(1.702\, x)
+    \]
+    <div class="math-explain">where \(\Phi\) is the CDF of the standard normal. ReLU's derivative is 0 for \(x < 0\), killing neurons permanently. GELU's derivative is smooth and nonzero even slightly below zero — neurons stay "alive" and continue receiving gradient signal.</div>
+  </div>
+
+  <!-- Gradient Checkpointing -->
+  <div class="constraint">
+    <div class="constraint-icon">💾</div>
+    <div>
+      <div class="constraint-title">use_checkpoint=True — Gradient Checkpointing</div>
+      <div class="constraint-body">During backpropagation, PyTorch normally stores all intermediate activations from the forward pass in memory. For Swin UNETR processing 96³ volumes, this exceeds A100 VRAM at batch size 4. Gradient checkpointing <strong>recomputes activations on-the-fly</strong> during backprop instead of storing them — trading ~30% extra compute for ~40% VRAM reduction.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 5 — SUPERVISION STRATEGY ─────────────── -->
+<section class="section" id="supervision">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <div>
+      <div class="section-title">Supervision Strategy</div>
+      <div class="section-subtitle">No voxel masks → weak supervision via Global Average Pooling</div>
+    </div>
+  </div>
+
+  <div class="funnel">
+    <div class="funnel-level">
+      <div class="funnel-label">Supervision Paradigm Options</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">Fully Supervised Segmentation</div>
+          <div class="option-desc">Requires per-voxel masks annotated by radiologists. Not available in ABCD. Extremely expensive to obtain for 11,000 subjects.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">Self-Supervised (MAE, contrastive)</div>
+          <div class="option-desc">Good for pretraining but doesn't directly optimize for leukoaraiosis detection. Needs a downstream fine-tuning step anyway.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">Weakly Supervised (image-level labels)</div>
+          <div class="option-desc">Use existing clinical binary labels (positive/negative). GAP + classification head forces the encoder to localize lesions to make correct predictions — no voxel labels needed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="why-box">
+    <div class="why-title">How GAP Creates Implicit Localization</div>
+    <p>Global Average Pooling collapses <strong>(B, C, D, H, W) → (B, C, 1, 1, 1)</strong>. Each channel's single scalar = average activation across the entire volume. For the classifier to predict "positive", it must produce high activations in the channels that respond to lesion patterns. This constraint forces the encoder to learn spatially discriminative features — which Grad-CAM can then reveal.</p>
+  </div>
+
+  <div class="math-box">
+    <div class="math-label">Global Average Pooling</div>
+    \[
+    z_c = \frac{1}{D \cdot H \cdot W} \sum_{d,h,w} A_c(d, h, w)
+    \]
+    <div class="math-explain">where \(A_c\) is the activation map for channel \(c\) at the bottleneck. The resulting vector \(\mathbf{z} \in \mathbb{R}^{1536}\) feeds the classification head. No spatial information is preserved — but during Grad-CAM, we bypass GAP and read \(A_c\) directly to recover spatial heatmaps.</div>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 6 — LOSS & OPTIMIZER ─────────────── -->
+<section class="section" id="loss">
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <div>
+      <div class="section-title">Loss Function &amp; Optimizer</div>
+      <div class="section-subtitle">The hardest decisions — class imbalance forces non-standard choices</div>
+    </div>
+  </div>
+
+  <!-- Metric selection -->
+  <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:16px; margin-top: 8px;">Step 1 — Choose the Right Evaluation Metric</h3>
+
+  <table class="compare-table">
+    <tr>
+      <th>Metric</th><th>What it measures</th><th>Problem with imbalanced data</th>
+    </tr>
+    <tr>
+      <td>Accuracy</td>
+      <td>% correct predictions</td>
+      <td class="cross">✗ Predict all-negative → 97% accuracy. Useless.</td>
+    </tr>
+    <tr>
+      <td>AUROC</td>
+      <td>Rank positives above negatives</td>
+      <td class="cross">✗ Penalized by True Negative Rate — trivially high when predicting mostly negative.</td>
+    </tr>
+    <tr class="chosen-row">
+      <td><strong>AUPREC</strong></td>
+      <td>Precision-Recall tradeoff for positives</td>
+      <td class="check">✓ Completely insensitive to negative class size. Honest measure of minority-class detection.</td>
+    </tr>
+  </table>
+
+  <div class="math-box">
+    <div class="math-label">Precision-Recall vs ROC</div>
+    \[
+    \text{Precision} = \frac{TP}{TP + FP}
+    \qquad
+    \text{Recall} = \frac{TP}{TP + FN}
+    \]
+    \[
+    \text{AUPREC} = \int_0^1 \text{Precision}(r)\, dr
+    \]
+    <div class="math-explain">AUPREC only involves TP, FP, FN — the True Negatives (the majority class) do not appear. With 95% negatives, AUROC is dominated by how well the model handles the easy majority. AUPREC forces the model to care about the rare positives.</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Loss function -->
+  <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:16px;">Step 2 — Make AUPREC Differentiable</h3>
+
+  <div class="constraint">
+    <div class="constraint-icon">🚧</div>
+    <div>
+      <div class="constraint-title">Problem: AUPREC is not differentiable</div>
+      <div class="constraint-body">AUPREC is computed from a sorted ranking of predictions. Sorting is a discrete, non-differentiable operation — you cannot backpropagate through it directly. We need a smooth surrogate.</div>
+    </div>
+  </div>
+
+  <div class="funnel" style="margin-top:20px;">
+    <div class="funnel-level">
+      <div class="funnel-label">Loss Function Options for Imbalanced Classification</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">Binary Cross-Entropy</div>
+          <div class="option-desc">Each sample contributes equally. 95% of gradient comes from negatives → model ignores positives.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">Focal Loss</div>
+          <div class="option-desc">Down-weights easy negatives. Better, but still optimizes per-sample probability, not the <em>ranking</em> that AUPREC measures.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">Weighted BCE</div>
+          <div class="option-desc">Manual weight tuning needed. Fragile across folds with different imbalance ratios.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">APLoss (Average Precision Loss)</div>
+          <div class="option-desc">Smooth surrogate for AUPREC via squared-hinge relaxation of the pairwise ranking objective. Directly optimizes what we measure.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="math-box">
+    <div class="math-label">APLoss — Pairwise Ranking Objective</div>
+    \[
+    \mathcal{L}_{\text{AP}} = \sum_{i \in \mathcal{P}} \sum_{j \in \mathcal{N}} \ell\!\left(s_i - s_j\right)
+    \]
+    \[
+    \ell(z) = \max(0,\; 1 - z)^2 \quad \text{(squared-hinge)}
+    \]
+    <div class="math-explain">For every pair (positive \(i\), negative \(j\)), the loss penalizes cases where the positive score \(s_i\) does not exceed the negative score \(s_j\) by at least the margin (=1). The squared-hinge makes the loss smooth and differentiable. The <code>gamma=0.1</code> parameter applies a moving average to stabilize gradient estimates across batches.</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Optimizer -->
+  <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:16px;">Step 3 — Optimizer Coupled to the Loss</h3>
+
+  <div class="funnel">
+    <div class="funnel-level">
+      <div class="funnel-label">Optimizer Options</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">Adam + APLoss</div>
+          <div class="option-desc">Adam treats APLoss like any other loss. The pairwise ranking objective has non-i.i.d. structure across batches — Adam ignores this and produces unstable training.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">AdamW + APLoss</div>
+          <div class="option-desc">Same issue as Adam. Weight decay helps with regularization but doesn't address the non-i.i.d. structure of pairwise losses.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">SOAP (LibAUC)</div>
+          <div class="option-desc">SOAP (Stochastic Optimization for Average Precision) maintains an internal surrogate state coupled to APLoss. Specifically designed for pairwise ranking — epoch_decay anneals the regularization term progressively.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Cross-validation -->
+  <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:16px;">Step 4 — Preventing Data Leakage in Cross-Validation</h3>
+
+  <div class="funnel">
+    <div class="funnel-level">
+      <div class="funnel-label">Cross-Validation Strategy</div>
+      <div class="options-row">
+        <div class="option rejected">
+          <div class="option-name">KFold</div>
+          <div class="option-desc">Random split. Two sessions from the same subject could land in train AND validation. The model memorizes subject anatomy → inflated metrics.</div>
+        </div>
+        <div class="option rejected">
+          <div class="option-name">StratifiedKFold</div>
+          <div class="option-desc">Preserves class ratios but still allows same-subject leakage across folds.</div>
+        </div>
+        <div class="option chosen">
+          <div class="option-name">StratifiedGroupKFold</div>
+          <div class="option-desc">Groups = subject_id. All sessions from one subject go entirely into one fold. Stratification ensures ~equal positive ratio per fold. Prevents subject-level leakage.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="why-box">
+    <div class="why-title">Why Subject Leakage Is Dangerous</div>
+    <p>ABCD has multiple sessions per subject. If sessions from the same subject appear in both train and validation, the model learns <em>who the person is</em> rather than <em>what the lesion looks like</em>. Validation AUPREC would be inflated because the model recognizes subject-specific brain anatomy, not disease patterns.</p>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 7 — GRAD-CAM ─────────────── -->
+<section class="section" id="explainability">
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <div>
+      <div class="section-title">Explainability — Grad-CAM</div>
+      <div class="section-subtitle">Recovering spatial heatmaps from a classification model</div>
+    </div>
+  </div>
+
+  <div class="why-box">
+    <div class="why-title">Why Grad-CAM and not alternatives?</div>
+    <p>We need spatial heatmaps to (1) validate the model is attending to white matter, not artifacts, and (2) generate pseudo-masks for Phase 5. Grad-CAM works on any pretrained model without retraining. Alternatives like LIME or SHAP are too slow for 3D volumes. Attention rollout requires transformer-specific hooks that are harder to implement across all Swin stages.</p>
+  </div>
+
+  <div class="math-box">
+    <div class="math-label">Grad-CAM Algorithm (3D)</div>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom: 14px;">Step 1 — Forward pass; capture activation tensor at target layer:</p>
+    \[ A \in \mathbb{R}^{B \times C \times D' \times H' \times W'} \]
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin: 14px 0;">Step 2 — Backpropagate the positive-class logit; capture gradient tensor:</p>
+    \[ G = \frac{\partial s_{\text{pos}}}{\partial A} \in \mathbb{R}^{B \times C \times D' \times H' \times W'} \]
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin: 14px 0;">Step 3 — Per-channel importance weights via global average pooling over spatial dims:</p>
+    \[ \alpha_c = \frac{1}{D' H' W'} \sum_{d,h,w} G_c(d, h, w) \]
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin: 14px 0;">Step 4 — Weighted combination of activation maps + ReLU:</p>
+    \[ \text{CAM} = \text{ReLU}\!\left(\sum_c \alpha_c \cdot A_c\right) \]
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin: 14px 0;">Step 5 — Upsample from encoder resolution to 96³ via trilinear interpolation; normalize to [0,1].</p>
+    <div class="math-explain">ReLU removes channels that <em>suppress</em> the positive prediction. Only regions that positively contribute to the leukoaraiosis score are highlighted.</div>
+  </div>
+
+  <div class="constraint">
+    <div class="constraint-icon">🔧</div>
+    <div>
+      <div class="constraint-title">Swin Transformer Token Reshaping</div>
+      <div class="constraint-body">Standard CNNs produce spatial tensors <strong>(B, C, D, H, W)</strong>. Swin Transformers output <strong>token sequences (B, T, C)</strong>. Before computing the weighted sum, the sequence is reshaped to spatial: <code>T → (D', H', W')</code> by taking the cube root of T (valid because the input is isotropic and windows are cubic). Without this step, Grad-CAM would produce a meaningless 1D heatmap.</div>
+    </div>
+  </div>
+
+  <div class="constraint">
+    <div class="constraint-icon">🎯</div>
+    <div>
+      <div class="constraint-title">Target Layer: layers4[-1] (last block, deepest stage)</div>
+      <div class="constraint-body">Earlier layers capture local texture (edges, intensities). Deeper layers capture semantic, abstract features — "this region looks like white matter with pathological changes". The last block of the deepest Swin stage (layers4) has the largest receptive field and most globally abstract representations. It produces the most meaningful Grad-CAM heatmaps for diffuse lesion localization.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 8 — PHASE 5 ─────────────── -->
+<section class="section" id="phase5">
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <div>
+      <div class="section-title">Phase 5 — Pseudo-Mask Self-Training</div>
+      <div class="section-subtitle">From coarse heatmaps to voxel-level segmentation, without manual annotations</div>
+    </div>
+  </div>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">A</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Otsu Thresholding → Pseudo-Masks</div>
+        <div class="pipe-desc">Grad-CAM heatmaps are continuous (0–1). We need binary masks to train a segmentation model. Manual threshold tuning is fragile — Otsu's method automatically finds the optimal threshold by maximizing inter-class variance between background and lesion intensity distributions.</div>
+        <div class="math-box">
+          <div class="math-label">Otsu's Method</div>
+          \[
+          \sigma^2_{\text{between}}(t) = w_0(t)\, w_1(t)\, \bigl[\mu_0(t) - \mu_1(t)\bigr]^2
+          \]
+          \[
+          t^* = \arg\max_t\; \sigma^2_{\text{between}}(t)
+          \]
+          <div class="math-explain">where \(w_0, w_1\) are the proportions of voxels below/above threshold \(t\), and \(\mu_0, \mu_1\) are their means. Computed on <em>nonzero voxels only</em> — the large zero-background would bias the threshold toward zero. Only heatmaps with ≥100 nonzero voxels are processed (too few = classifier found no clear evidence of pathology).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pipe-step">
+      <div class="pipe-num">B</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Decoder Fine-Tuning with DiceFocalLoss</div>
+        <div class="pipe-desc">The UNETR decoder (randomly initialized) is fine-tuned using pseudo-masks as supervision. The encoder weights from Phase 3 are frozen at first — a low learning rate (5×10⁻⁵ vs 10⁻⁴ in Phase 3) avoids disrupting the representations already learned.</div>
+        <div class="math-box">
+          <div class="math-label">DiceFocalLoss = Dice Loss + Focal Loss</div>
+          \[
+          \mathcal{L}_{\text{Dice}} = 1 - \frac{2 \sum_i p_i g_i}{\sum_i p_i + \sum_i g_i}
+          \]
+          \[
+          \mathcal{L}_{\text{Focal}} = -\sum_i (1-p_i)^\gamma \log p_i
+          \]
+          \[
+          \mathcal{L}_{\text{total}} = \lambda_{\text{Dice}}\,\mathcal{L}_{\text{Dice}} + \lambda_{\text{Focal}}\,\mathcal{L}_{\text{Focal}} \quad (\lambda=1 \text{ each})
+          \]
+          <div class="math-explain">
+            <strong>Dice</strong> is invariant to lesion size — it measures overlap regardless of whether the lesion is 10 voxels or 10,000. Critical for imbalanced segmentation (lesion << background).<br><br>
+            <strong>Focal</strong> with γ=2 down-weights easy voxels: for p=0.9 → weight = (1−0.9)² = 0.01; for p=0.5 → weight = 0.25. Hard boundary voxels receive 25× more gradient signal than confidently-classified interior voxels.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="why-box">
+    <div class="why-title">Why Self-Training Works Here</div>
+    <p>Phase 3 achieved high AUPREC — the classifier <em>knows</em> where leukoaraiosis is (it just can't tell us at the voxel level). Grad-CAM reveals those regions coarsely. By treating these coarse outlines as ground truth, we train the decoder to produce <em>precise</em> voxel-level maps. This is label propagation: <strong>weak image-level labels → coarse spatial labels → precise segmentation masks</strong>. Each step refines the previous without requiring any manual annotation.</p>
+  </div>
+</section>
+
+<!-- ─────────────── SECTION 9 — SUMMARY ─────────────── -->
+<section class="section" id="summary">
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <div>
+      <div class="section-title">Summary Table</div>
+      <div class="section-subtitle">Every architectural choice and its justification at a glance</div>
+    </div>
+  </div>
+
+  <table class="summary-table">
+    <tr>
+      <th>Component</th><th>Choice</th><th>Parameters</th><th>Key Constraint / Reason</th>
+    </tr>
+    <tr>
+      <td>Backbone</td>
+      <td>Swin UNETR</td>
+      <td>feature_size=48</td>
+      <td>Diffuse lesions need global context; linear complexity; encoder reused in Phase 5</td>
+    </tr>
+    <tr>
+      <td>Input</td>
+      <td>2-channel 3D patch</td>
+      <td>(2, 96, 96, 96)</td>
+      <td>T1w + T2w combined; 96³ = GPU memory limit</td>
+    </tr>
+    <tr>
+      <td>Resampling</td>
+      <td>1mm isotropic</td>
+      <td>(1.0, 1.0, 1.0) mm</td>
+      <td>Voxel-exact T1/T2 alignment; 1 voxel = 1 mm³</td>
+    </tr>
+    <tr>
+      <td>Normalization</td>
+      <td>Percentile clip + Z-score</td>
+      <td>[1st–99th]%, channel-wise</td>
+      <td>Remove scanner outliers; align T1/T2 scales</td>
+    </tr>
+    <tr>
+      <td>Supervision</td>
+      <td>GAP + binary label</td>
+      <td>AdaptiveAvgPool3d(1)</td>
+      <td>No voxel masks available; GAP forces spatial localization implicitly</td>
+    </tr>
+    <tr>
+      <td>Loss (Ph. 3)</td>
+      <td>APLoss</td>
+      <td>margin=1.0, γ=0.1</td>
+      <td>3–5% positives; smooth surrogate for AUPREC</td>
+    </tr>
+    <tr>
+      <td>Optimizer (Ph. 3)</td>
+      <td>SOAP</td>
+      <td>lr=1e-4, decay=2e-4</td>
+      <td>Coupled to pairwise ranking structure of APLoss</td>
+    </tr>
+    <tr>
+      <td>Cross-validation</td>
+      <td>StratifiedGroupKFold</td>
+      <td>groups=subject_id</td>
+      <td>Prevent subject-level leakage across folds</td>
+    </tr>
+    <tr>
+      <td>Explainability</td>
+      <td>Grad-CAM (3D)</td>
+      <td>target=layers4[-1]</td>
+      <td>No retraining needed; generates pseudo-masks for Ph. 5</td>
+    </tr>
+    <tr>
+      <td>Pseudo-mask</td>
+      <td>Otsu thresholding</td>
+      <td>min 100 nonzero voxels</td>
+      <td>Automatic threshold; no manual tuning</td>
+    </tr>
+    <tr>
+      <td>Loss (Ph. 5)</td>
+      <td>DiceFocalLoss</td>
+      <td>γ=2.0, λ=1 each</td>
+      <td>Size-invariant overlap + hard boundary voxel focus</td>
+    </tr>
+    <tr>
+      <td>LR Scheduler (Ph. 5)</td>
+      <td>CosineAnnealing</td>
+      <td>lr=5e-5 → 1e-6</td>
+      <td>Fine-tuning — preserve encoder; smooth convergence</td>
+    </tr>
+  </table>
+</section>
+
+</div><!-- /container -->
+
+<div class="footer">
+  Leukoaraiosis Detection Pipeline — ABCD Dataset &nbsp;·&nbsp; Swin UNETR + APLoss + Grad-CAM
+</div>
+
+</body>
+</html>

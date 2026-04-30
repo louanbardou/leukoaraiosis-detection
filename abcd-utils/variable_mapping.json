@@ -1,0 +1,183 @@
+{
+    "familyID": {
+        "roots": {
+            "5.0": [
+                "rel_family_id"
+            ],
+            "5.1": [
+                "rel_family_id"
+            ]
+        },
+        "fill": true
+    },
+    "parents_education": {
+        "levels": {
+            "0": "Never attended/Kindergarten only",
+            "1": "1st grade",
+            "2": "2nd grade",
+            "3": "3rd grade",
+            "4": "4th grade",
+            "5": "5th grade",
+            "6": "6th grade",
+            "7": "7th grade",
+            "8": "8th grade",
+            "9": "9th grade",
+            "10": "10th grade",
+            "11": "11th grade",
+            "12": "12th grade",
+            "13": "High school graduate",
+            "14": "GED or equivalent",
+            "15": "Some college",
+            "16": "Associate degree: Occupational",
+            "17": "Associate degree: Academic Program",
+            "18": "Bachelor's degree",
+            "19": "Master's degree",
+            "20": "Professional School degree",
+            "21": "Doctoral degree",
+            "22": "Less than 1 year of college credit/post-secondary education (or less than 10 classes)",
+            "23": "One year or more of college credit, no degree",
+            "777": "Refused to answer",
+            "999": "Don't know"
+        },
+        "roots": {
+            "5.0": [
+                "demo_prnt_ed_v2",
+                "demo_prtnr_ed_v2"
+            ],
+            "5.1": [
+                "demo_prnt_ed_v2",
+                "demo_prtnr_ed_v2"
+            ]
+        },
+        "new_categories": {
+            "Less than High School Diploma": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11"
+            ],
+            "HS Diploma/GED": [
+                "12",
+                "13",
+                "14"
+            ],
+            "Some College": [
+                "15",
+                "16",
+                "17",
+                "22",
+                "23"
+            ],
+            "Bachelor": [
+                "18"
+            ],
+            "Post Graduate Degree": [
+                "19",
+                "20",
+                "21"
+            ],
+            "other": [
+                "777",
+                "999"
+            ]
+        }
+    },
+    "parents_income": {
+        "levels": {
+            "1": "<$5,000",
+            "2": "$5,000 - $11,999",
+            "3": "$12,000 - $15,999",
+            "4": "$16,000 - $24,999",
+            "5": "$25,000 - $34,999",
+            "6": "$35,000 - $49,999",
+            "7": "$50,000 - $74,999",
+            "8": "$75,000 - $99,999",
+            "9": "$100,000 - $199,999",
+            "10": ">$200,000",
+            "777": "Refuse to answer",
+            "999": "Don't know"
+        },
+        "roots": {
+            "5.0": [
+                "demo_comb_income_v2"
+            ],
+            "5.1": [
+                "demo_comb_income_v2"
+            ]
+        },
+        "new_categories": {
+            "<50K": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6"
+            ],
+            ">=50K & <100K": [
+                "7",
+                "8"
+            ],
+            ">=100K": [
+                "9",
+                "10"
+            ],
+            "other": [
+                "777",
+                "999"
+            ]
+        }
+    },
+    "interview_age": {
+        "roots": {
+            "5.0": [
+                "interview_age"
+            ],
+            "5.1": [
+                "interview_age"
+            ]
+        }
+    },
+    "sex_at_birth": {
+        "levels": {
+            "1": "Male",
+            "2": "Female",
+            "3": "Intersex-Male",
+            "4": "Intersex-Female",
+            "777": "Refuse to answer",
+            "999": "Don't know"
+        },
+        "roots": {
+            "5.0": [
+                "demo_sex_v2"
+            ],
+            "5.1": [
+                "demo_sex_v2"
+            ]
+        },
+        "fill": true
+    },
+    "ehi_y_ss_scoreb": {
+        "levels": {
+            "1": "Right-handed",
+            "2": "Left-handed",
+            "3": "Mixed-handed"
+        },
+        "roots": {
+            "5.0": [
+                "ehi_y_ss_scoreb"
+            ],
+            "5.1": [
+                "ehi_y_ss_scoreb"
+            ]
+        },
+        "fill": true
+    }
+}

@@ -1,130 +1,9 @@
 # Project State — Complete Documentation
 **Written:** 2026-04-10  
-**Cluster:** Wynton HPC (UCSF) — `loubard@wynton`  
-**Home:** `/wynton/home/sugrue/loubard/`  
-**Workspace:** `/wynton/home/sugrue/loubard/workspace/` ← all project files live here
-
----
-
-## What This Document Is
-
-A complete, precise record of everything that exists in the workspace right now:
-why each piece was created, exactly how it works, and what comes next.
-Anyone reading this from scratch — or any future Claude session — can pick up exactly where we left off.
-
----
-
-## Part 1 — Safety Infrastructure: Claude Code in Apptainer
-
-### Why This Was Built
-
-When running Claude Code (an AI coding assistant) on an HPC cluster, the risk is that the AI could accidentally write, modify, or delete files anywhere on the shared `/wynton` filesystem — including other users' data, group-shared scripts, or critical configuration files.
-
-To eliminate this risk completely, Claude Code is now run inside an **Apptainer container** that enforces the write restriction at the operating-system level — not just as a policy, but as a hard filesystem permission.
-
-### The Two-Layer Safety System
-
-**Layer 1 — Soft enforcement: `CLAUDE.md`**
-
-File: `/wynton/home/sugrue/loubard/workspace/CLAUDE.md`
-
-Claude Code automatically reads any file named `CLAUDE.md` in the working directory at the start of every session. This file states the rule in plain language:
-
-> You must NEVER create, modify, or delete any file unless its path is inside `/wynton/home/sugrue/loubard/workspace`. You may read files anywhere on the filesystem.
-
-This ensures Claude understands the policy even before any filesystem enforcement kicks in.
-
-**Layer 2 — Hard enforcement: Apptainer OS-level bind mounts**
-
-The container is run with these Apptainer flags:
-
-```
---containall          → strips all default home/env mounts; clean slate
---no-privs            → drops all elevated privileges
---bind /wynton:/wynton:ro         → entire /wynton filesystem: READ-ONLY
---bind ~/.claude:~/.claude        → Claude's own state dir: read-write
---bind ~/.claude.json:~/.claude.json  → OAuth tokens: read-write
---bind workspace:workspace        → project workspace: read-write
---env SHELL=/bin/sh   → tells Claude's Bash tool which shell to invoke
---pwd workspace       → always starts in workspace regardless of call location
-```
-
-The critical mechanism: `/wynton` is mounted read-only at the kernel level. Any attempt to write, create, or delete a file outside the three explicitly writable paths (`~/.claude`, `~/.claude.json`, `workspace`) results in an immediate `Read-only file system` OS error — not a warning, not a policy check, but a hard kernel-level rejection.
-
-The three writable paths explained:
-- `workspace` — where all project code, data, and outputs live (the whole point)
-- `~/.claude/` — Claude Code's internal session cache, history, and project memory
-- `~/.claude.json` — OAuth credential file (gets refreshed/rewritten by the auth system)
-
-### The Container Image
-
-**Base image:** `docker://node:18-alpine` (Node.js 18 on Alpine Linux)
-
-Why this image: Claude Code is a Node.js application. The `node:18-alpine` image provides Node 18.20.8 (matching the host) in a minimal Alpine Linux container (~130MB SIF). Alpine has `/bin/sh` which Claude Code's Bash tool uses as its shell.
-
-**Built to:** `/wynton/home/sugrue/loubard/workspace/claude-apptainer/claude_safe.sif` (41MB SIF file after Apptainer conversion)
-
-The container does not need the host's `/usr/bin/node` because the image includes its own. The Claude Code package itself (`~/.npm-global/lib/node_modules/@anthropic-ai/claude-code/cli.js`) is accessed via the `/wynton:ro` bind — it lives on the host at a path under `/wynton/home`, which is bind-mounted read-only into the container.
-
-### Verified Security Behavior
-
-These three checks were run and passed inside the container:
-
-```
-touch /wynton/home/sugrue/loubard/test.txt   → Read-only file system   ✓ BLOCKED
-touch /wynton/.../workspace/test.txt         → success; file created    ✓ ALLOWED
-ls /wynton/home/sugrue/loubard/.bashrc       → file listed              ✓ READABLE
-claude --version                             → 2.1.101 (Claude Code)    ✓ WORKS
-```
-
-### Files Created
-
-```
-workspace/
-├── CLAUDE.md                              ← policy file (read by Claude at start)
-└── claude-apptainer/
-    ├── build.sh                           ← pulls the SIF from Docker Hub
-    ├── claude_safe.sif                    ← the Apptainer container (41MB)
-    └── launch_claude.sh                   ← the safe launcher script
-```
-
-### How to Use
-
-```bash
-# Launch Claude Code safely (from any directory)
-bash /wynton/home/sugrue/loubard/workspace/claude-apptainer/launch_claude.sh
-
-# Recommended: add to ~/.bashrc
-alias claude-safe='bash /wynton/home/sugrue/loubard/workspace/claude-apptainer/launch_claude.sh'
-```
-
-The launcher can be called from any directory. The `--pwd` flag in the Apptainer command always places Claude in the workspace inside the container, regardless of where the script is called from on the host.
-
-### What `--containall` Does
-
-Without `--containall`, Apptainer automatically binds `$HOME` and `/tmp` into the container and passes through the host's environment variables. `--containall` prevents all of this — the container starts with only what we explicitly bind. This is essential because:
-- Without it, `$HOME` would be automatically writable (defeating the purpose)
-- Without it, the host's `SHELL` variable would be inherited — but since we're in a new clean environment, SHELL might not point to a shell that exists in the container
-
-This is why we explicitly pass `--env SHELL=/bin/sh` — Alpine Linux has `/bin/sh` (busybox ash), and Claude Code's Bash tool needs this variable to know what shell to invoke when running commands.
-
----
-
-## Part 2 — ABCD Dataset Documentation
-
-### What Was Explored
-
-The full directory tree of `/wynton/group/abcd/` was explored. Every accessible file and directory was examined. A comprehensive reference document was written.
-
-**File:** `/wynton/home/sugrue/loubard/workspace/Leuko_abcd/ABCD_data_overview.md` (793 lines)
 
 ### What the ABCD Study Is
 
 The **Adolescent Brain Cognitive Development (ABCD) Study** is the largest long-term study of brain development in the United States. It tracks ~11,900 children starting at age 9–10 across 7 annual visits (sessions), collecting neuroimaging, cognitive assessments, mental and physical health data, genetics, and rich environmental variables at 21 research sites nationwide.
-
-### What Is Accessible on Wynton
-
-Releases 4.0, 5.0, and 5.1 exist in `/wynton/group/abcd/` but are **permission-restricted** (the lab does not have read access). Releases **6.0** and **6.1** are fully accessible.
 
 ### Release 6.0 — The Main Release
 
@@ -409,12 +288,7 @@ A 3D Vision Transformer where:
 
 ## Part 4 — Phase 1.1: Environment Setup (Complete)
 
-### What Was Installed
-
-Everything is installed in a Python virtual environment at:
-`/wynton/home/sugrue/loubard/workspace/leuko_env/`
-
-Total size: 5.8 GB (dominated by PyTorch + CUDA libraries)
+### What should be installed
 
 | Package | Version | Purpose |
 |---------|---------|---------|
@@ -436,10 +310,6 @@ Total size: 5.8 GB (dominated by PyTorch + CUDA libraries)
 | **pillow** | 12.1.1 | Image I/O |
 | **tqdm** | 4.67.3 | Progress bars |
 | **torch-geometric** | 2.7.0 | Graph neural networks (pulled in by LibAUC) |
-
-### Why CUDA 12.4 Wheel?
-
-Wynton has CUDA 12.5 as its default module. PyTorch's CUDA wheels are released for specific CUDA toolkit versions (cu118, cu121, cu124, etc.). There is no cu125 wheel. The cu124 wheel works with the 12.5 driver because NVIDIA maintains **forward driver compatibility** — a CUDA 12.4 runtime runs correctly on a machine with a CUDA 12.5 or later driver installed. This is the standard approach on HPC clusters.
 
 ### CUDA Is NOT Visible on the Login Node
 
@@ -476,52 +346,6 @@ from libauc.losses import APLoss                   # AUPREC surrogate
 from libauc.optimizers import SOAP                 # AUPREC optimizer
 from nilearn import plotting, image                # visualization
 ```
-
-### Files Created
-
-```
-workspace/
-├── CLAUDE.md                              ← safety policy (auto-read by Claude)
-├── claude-apptainer/
-│   ├── build.sh                           ← pulls SIF from Docker Hub
-│   ├── claude_safe.sif                    ← Apptainer container (41MB)
-│   └── launch_claude.sh                   ← safe Claude launcher
-├── leuko_env/                             ← Python venv (5.8 GB)
-│   ├── bin/activate                       ← standard venv activation
-│   ├── bin/python3                        ← Python 3.11.13
-│   └── lib/python3.11/site-packages/      ← all installed packages
-└── Leuko_abcd/
-    ├── ABCD_data_overview.md              ← full ABCD dataset reference (793 lines)
-    ├── activate_env.sh                    ← sources venv + loads CUDA module
-    ├── install_env.sh                     ← re-runnable install script
-    └── project_state.md                   ← this file
-```
-
-### How to Activate in Any Script or SLURM Job
-
-```bash
-source /wynton/home/sugrue/loubard/workspace/Leuko_abcd/activate_env.sh
-```
-
-What `activate_env.sh` does:
-1. `module load cuda/12.5` — loads NVIDIA CUDA toolkit (required on GPU compute nodes)
-2. `source leuko_env/bin/activate` — activates the Python venv
-3. Exports convenience variables:
-   - `LEUKO_WORKSPACE` → `workspace/Leuko_abcd/`
-   - `ABCD_TABULATED` → `/wynton/group/abcd/6.1/tabulated`
-   - `ABCD_IMAGING` → `/wynton/group/abcd/6.0/imaging/derivatives/mproc`
-   - `ABCD_CONCAT` → `/wynton/group/abcd/6.1/concat`
-
----
-
-## Part 5 — What Comes Next (Phase 1.2)
-
-The next step is **label extraction**: finding the variable(s) in the ABCD data dictionary that quantify white matter hyperintensity burden, extracting those values for all subjects, and binarizing them into a training label.
-
-Candidate variables to search for in `datadictionary.csv`:
-- White matter hyperintensity volume scores (from automated segmentation pipelines like LST or UBO Detector)
-- Fazekas scores (ordinal radiological rating: 0 = none, 1 = punctate, 2 = beginning confluence, 3 = large confluent)
-- Any clinical notes flags from `mr_y_qc__clfind` (clinical finding QC table) mentioning white matter abnormalities
 
 The approach:
 ```python
