@@ -11,15 +11,18 @@
 # ── Paths ─────────────────────────────────────────────────────────────────────
 WORKSPACE="/mnt/home/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
-source "$WORKSPACE/activate_env.sh"
-cd "$WORKSPACE"
+source "$WORKSPACE/activate_env.sh" || { echo "ERROR: activate_env.sh failed"; exit 1; }
+cd "$WORKSPACE"              || { echo "ERROR: cannot cd to $WORKSPACE"; exit 1; }
 mkdir -p logs
+
+echo "Working directory: $(pwd)"
+echo "Python: $(which python)"
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 RUN_DIR="runs/phase3_$(date +%Y%m%d_%H%M%S)"
 
 python phase3_train.py \
-    --manifest    manifest.csv \
+    --manifest    manifest_balanced.csv \
     --out_dir     "$RUN_DIR" \
     --epochs      100 \
     --batch_size  4 \
