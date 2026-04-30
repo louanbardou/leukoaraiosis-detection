@@ -224,10 +224,10 @@ def train(args) -> None:
     print(f"Positive prior: {n_pos / len(train_df):.4f} ({n_pos} positives)")
 
     loss_fn = APLoss(
-        pos_len=n_pos,
+        data_len=len(train_df),
         num_labels=1,
         margin=1.0,    # squared-hinge margin; 1.0 is the standard default
-        gamma=0.1,     # moving-average smoothing factor for gradient estimates
+        gamma=0.9,     # moving-average smoothing factor (LibAUC 1.3 default)
     )
 
     # SOAP maintains an internal dual variable coupled to the APLoss objective.
