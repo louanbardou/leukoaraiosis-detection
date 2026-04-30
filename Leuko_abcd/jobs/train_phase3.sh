@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=leuko_train
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=48:00:00
