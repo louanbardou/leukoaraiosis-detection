@@ -110,9 +110,9 @@ class LeukoBinaryClassifier(nn.Module):
             spatial_dims=3,
         )
 
-        # The encoder's final hidden dimension is feature_size * 32.
-        # See module docstring for the derivation.
-        hidden_dim = feature_size * 32   # 1536 for feature_size=48
+        # The encoder's final hidden dimension is feature_size * 16.
+        # SwinUNETR stages: 1x -> 2x -> 4x -> 8x -> 16x feature_size.
+        hidden_dim = feature_size * 16   # 768 for feature_size=48
 
         # Global Average Pool collapses the spatial dimensions of the feature map
         # to a single scalar per channel: (B, C, D', H', W') -> (B, C, 1, 1, 1)
@@ -154,11 +154,11 @@ class LeukoBinaryClassifier(nn.Module):
         # decreasing spatial resolution. hidden_states[-1] is the deepest feature map.
         hidden_states = self.backbone.swinViT(x, normalize=True)
 
-        # Deepest feature map: (B, feature_size*32, D/32, H/32, W/32)
-        # For 96^3 input with feature_size=48: shape (B, 1536, 3, 3, 3)
+        # Deepest feature map: (B, feature_size*16, D/32, H/32, W/32)
+        # For 96^3 input with feature_size=48: shape (B, 768, 3, 3, 3)
         deepest_features = hidden_states[-1]
 
-        pooled = self.gap(deepest_features)   # (B, 1536, 1, 1, 1)
+        pooled = self.gap(deepest_features)   # (B, 768, 1, 1, 1)
         return self.head(pooled)              # (B, 1)
 
     def get_cam_target(self) -> nn.Module:
