@@ -9,7 +9,7 @@
 #SBATCH --error=logs/train_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKSPACE="/mnt/home/lbardou/leukoaraiosis-detection/Leuko_abcd"
+WORKSPACE="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
 source "$WORKSPACE/activate_env.sh" || { echo "ERROR: activate_env.sh failed"; exit 1; }
 cd "$WORKSPACE"              || { echo "ERROR: cannot cd to $WORKSPACE"; exit 1; }

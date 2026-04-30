@@ -9,7 +9,7 @@
 #SBATCH --error=logs/gradcam_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKSPACE="/mnt/home/lbardou/leukoaraiosis-detection/Leuko_abcd"
+WORKSPACE="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
 # Edit this variable before submitting: fill in the path to your best_model.pt
 CHECKPOINT="runs/phase3_YYYYMMDD_HHMMSS/best_model.pt"

@@ -9,7 +9,7 @@
 #
 #     source /mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd/activate_env.sh
 
-WORKSPACE="/mnt/home/lbardou"
+WORKSPACE="/home/remote/lbardou"
 VENV="$WORKSPACE/leuko_env"
 
 # Load the CUDA module. Required on compute nodes; the warning is suppressed
