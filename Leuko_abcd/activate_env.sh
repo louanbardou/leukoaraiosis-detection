@@ -9,7 +9,7 @@
 #
 #     source /mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd/activate_env.sh
 
-WORKSPACE="/mnt/fac/CX500007_DS1/bardou"
+WORKSPACE="/mnt/home/lbardou"
 VENV="$WORKSPACE/leuko_env"
 
 # Load the CUDA module. Required on compute nodes; the warning is suppressed
@@ -22,7 +22,7 @@ source "$VENV/bin/activate"
 # Export convenience path variables so scripts can reference them without
 # hardcoding cluster-specific paths
 export LEUKO_WORKSPACE="$WORKSPACE/leukoaraiosis-detection/Leuko_abcd"
-export ABCD_IMAGING="/mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc"
+export ABCD_IMAGING="/mnt/scratch/user/lbardou/abcd_leuko"
 
 echo "Environment activated"
 echo "  Python : $(python --version 2>&1 | cut -d' ' -f2)"

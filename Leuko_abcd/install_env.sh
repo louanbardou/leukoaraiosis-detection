@@ -10,7 +10,7 @@
 
 set -e
 
-WORKSPACE="/mnt/fac/CX500007_DS1/bardou"
+WORKSPACE="/mnt/home/lbardou"
 VENV="$WORKSPACE/leuko_env"
 
 # Create the virtual environment if it does not exist

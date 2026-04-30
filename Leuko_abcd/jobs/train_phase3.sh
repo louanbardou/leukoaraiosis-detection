@@ -9,7 +9,7 @@
 #SBATCH --error=logs/train_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKSPACE="/mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd"
+WORKSPACE="/mnt/home/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
 source "$WORKSPACE/activate_env.sh"
 cd "$WORKSPACE"

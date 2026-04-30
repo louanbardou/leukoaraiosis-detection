@@ -9,7 +9,7 @@
 #SBATCH --error=logs/phase5_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKSPACE="/mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd"
+WORKSPACE="/mnt/home/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
 # Edit these two variables before submitting
 CHECKPOINT="runs/phase3_YYYYMMDD_HHMMSS/best_model.pt"   # path to Phase 3 checkpoint
