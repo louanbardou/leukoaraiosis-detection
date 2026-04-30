@@ -248,7 +248,7 @@ def train(args) -> None:
     optimizer = SOAP(
         model.parameters(),
         lr=args.lr,
-        epoch_decay=2e-4,
+        epoch_decay=1e-6,
         weight_decay=1e-5,
     )
 
@@ -279,11 +279,6 @@ def train(args) -> None:
 
             tr_logits.extend(logits.detach().cpu().float().tolist())
             tr_labels.extend(batch_labels.cpu().tolist())
-
-        # SOAP's update_regularizer must be called once per epoch.
-        # decay_factor=10 gradually weakens the penalty on the surrogate state,
-        # allowing the optimizer to make larger steps as training progresses.
-        optimizer.update_regularizer(decay_factor=10)
 
         # Validation pass (no gradients needed)
         model.eval()
