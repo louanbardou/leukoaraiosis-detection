@@ -99,6 +99,8 @@ class LeukoDataset(Dataset):
     def __init__(self, df: pd.DataFrame, transform):
         self.df        = df.reset_index(drop=True)
         self.transform = transform
+        # DualSampler looks for a .targets attribute to identify class labels
+        self.targets   = self.df["label"].astype(int).tolist()
 
     def __len__(self) -> int:
         return len(self.df)
@@ -204,6 +206,7 @@ def train(args) -> None:
         train_dataset,
         batch_size=args.batch_size,
         num_pos=1,
+        sampling_rate=None,
         random_seed=args.seed,
     )
     train_loader = DataLoader(
@@ -244,7 +247,6 @@ def train(args) -> None:
     # epoch_decay slowly reduces the regularisation strength over training.
     optimizer = SOAP(
         model.parameters(),
-        loss_fn=loss_fn,
         lr=args.lr,
         epoch_decay=2e-4,
         weight_decay=1e-5,
@@ -288,7 +290,7 @@ def train(args) -> None:
         va_logits, va_labels = [], []
 
         with torch.no_grad():
-            for images, batch_labels in val_loader:
+            for images, batch_labels, _ in val_loader:
                 images = images.to(device, non_blocking=True)
                 logits = model(images).squeeze(1)
                 va_logits.extend(logits.cpu().float().tolist())
