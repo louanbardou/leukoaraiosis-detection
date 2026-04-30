@@ -31,6 +31,20 @@ def check(labels_csv: str, data_root: str) -> None:
     data_root = Path(data_root)
     df = pd.read_csv(labels_csv)
 
+    # Support Baseline_healthy.csv format (id_redcap, no label/session columns)
+    if "id_redcap" in df.columns and "subject_id" not in df.columns:
+        df["subject_id"] = df["id_redcap"].str.replace("NDAR_INV", "")
+    if "redcap_event_name" in df.columns and "session" not in df.columns:
+        event_map = {
+            "baseline_year_1_arm_1":    "ses-00A",
+            "2_year_follow_up_y_arm_1": "ses-02A",
+            "4_year_follow_up_y_arm_1": "ses-04A",
+            "6_year_follow_up_y_arm_1": "ses-06A",
+        }
+        df["session"] = df["redcap_event_name"].map(event_map).fillna("ses-00A")
+    if "label" not in df.columns:
+        df["label"] = 0  # Baseline_healthy → all label=0
+
     # Normalise IDs
     def norm_subj(s): return s if str(s).startswith("sub-") else f"sub-{s}"
     def norm_ses(s):  return s if str(s).startswith("ses-") else f"ses-{s}"
