@@ -225,9 +225,8 @@ def train(args) -> None:
 
     loss_fn = APLoss(
         data_len=len(train_df),
-        num_labels=1,
-        margin=1.0,    # squared-hinge margin; 1.0 is the standard default
-        gamma=0.9,     # moving-average smoothing factor (LibAUC 1.3 default)
+        margin=1.0,
+        gamma=0.9,
     )
 
     # SOAP maintains an internal dual variable coupled to the APLoss objective.
