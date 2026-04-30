@@ -53,10 +53,10 @@ def check(labels_csv: str, data_root: str) -> None:
         subj = row["subject_id"]
         ses  = row["session"]
         anat = data_root / subj / ses / "anat"
-        t1   = anat / f"{subj}_{ses}_run-01_T1w.nii.gz"
-        t2   = anat / f"{subj}_{ses}_run-01_T2w.nii.gz"
-        has_t1.append(t1.exists())
-        has_t2.append(t2.exists())
+        t1_files = list(anat.glob("*T1w.nii.gz")) if anat.exists() else []
+        t2_files = list(anat.glob("*T2w.nii.gz")) if anat.exists() else []
+        has_t1.append(len(t1_files) > 0)
+        has_t2.append(len(t2_files) > 0)
 
     df["has_t1"] = has_t1
     df["has_t2"] = has_t2

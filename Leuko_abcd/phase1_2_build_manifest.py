@@ -113,12 +113,12 @@ def resolve_nifti_paths(row: pd.Series, data_root: Path) -> tuple:
     ses  = row["session"]
     anat = data_root / subj / ses / "anat"
 
-    t1 = anat / f"{subj}_{ses}_run-01_T1w.nii.gz"
-    t2 = anat / f"{subj}_{ses}_run-01_T2w.nii.gz"
+    t1_files = sorted(anat.glob("*T1w.nii.gz")) if anat.exists() else []
+    t2_files = sorted(anat.glob("*T2w.nii.gz")) if anat.exists() else []
 
     return (
-        str(t1) if t1.exists() else None,
-        str(t2) if t2.exists() else None,
+        str(t1_files[0]) if t1_files else None,
+        str(t2_files[0]) if t2_files else None,
     )
 
 
