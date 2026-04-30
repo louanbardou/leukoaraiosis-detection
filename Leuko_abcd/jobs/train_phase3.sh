@@ -28,7 +28,7 @@ python "$WORKSPACE/phase3_train.py" \
     --out_dir     "$RUN_DIR" \
     --epochs      100 \
     --batch_size  4 \
-    --lr          1e-4 \
+    --lr          1e-5 \
     --feature_size 48 \
     --fold        0 \
     --seed        42
