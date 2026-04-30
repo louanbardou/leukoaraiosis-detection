@@ -114,7 +114,7 @@ class LeukoDataset(Dataset):
         row  = self.df.iloc[idx]
         data = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
         label = torch.tensor(float(row["label"]), dtype=torch.float32)
-        return data["image"], label
+        return data["image"], label, idx
 
 
 # -------------------------------------------------------------------------
@@ -249,13 +249,14 @@ def train(args) -> None:
         model.train()
         tr_logits, tr_labels = [], []
 
-        for images, batch_labels in train_loader:
+        for images, batch_labels, batch_idx in train_loader:
             images       = images.to(device, non_blocking=True)
             batch_labels = batch_labels.to(device, non_blocking=True)
+            batch_idx    = batch_idx.to(device, non_blocking=True)
 
             optimizer.zero_grad()
             logits = model(images).squeeze(1)       # (B,)
-            loss   = loss_fn(logits, batch_labels)
+            loss   = loss_fn(logits, batch_labels, batch_idx)
             loss.backward()
 
             # Gradient clipping prevents exploding gradients during the first
