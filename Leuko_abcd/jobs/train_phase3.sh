@@ -10,9 +10,11 @@
 #SBATCH --error=/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/logs/train_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKSPACE="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
+SCRIPT_DIR="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
-source "$WORKSPACE/activate_env.sh"
+source "$SCRIPT_DIR/activate_env.sh"
+# activate_env.sh overwrites WORKSPACE — use SCRIPT_DIR for our paths
+WORKSPACE="$SCRIPT_DIR"
 mkdir -p "$WORKSPACE/logs"
 
 echo "Working directory: $(pwd)"
