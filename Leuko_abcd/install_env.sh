@@ -2,21 +2,22 @@
 # install_env.sh
 # --------------
 # Installs all Python dependencies for the leukoaraiosis detection pipeline
-# into an existing virtual environment.
+# into a virtual environment.
 #
-# Run once on a login node (no GPU needed for installation):
+# Run ONCE on a login node (no GPU needed for installation):
 #
 #     bash install_env.sh 2>&1 | tee install_log.txt
-#
-# The virtual environment must already exist at $WORKSPACE/leuko_env.
-# If it does not, create it first:
-#
-#     python3 -m venv /wynton/home/sugrue/loubard/workspace/leuko_env
 
 set -e
 
-WORKSPACE="/wynton/home/sugrue/loubard/workspace"
+WORKSPACE="/mnt/fac/CX500007_DS1/bardou"
 VENV="$WORKSPACE/leuko_env"
+
+# Create the virtual environment if it does not exist
+if [ ! -d "$VENV" ]; then
+    echo "Creating virtual environment at $VENV"
+    python3 -m venv "$VENV"
+fi
 
 echo "Installing pipeline dependencies"
 echo "  Virtual env : $VENV"
@@ -80,9 +81,6 @@ print("APLoss import: OK")
 
 from libauc.optimizers import SOAP
 print("SOAP optimizer import: OK")
-
-from nilearn import plotting
-print("nilearn.plotting import: OK")
 
 print("\nAll checks passed.")
 PYEOF

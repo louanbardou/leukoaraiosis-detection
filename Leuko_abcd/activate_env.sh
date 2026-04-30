@@ -7,9 +7,9 @@
 # Source this at the top of every interactive session and at the top of
 # every SLURM job script:
 #
-#     source /wynton/home/sugrue/loubard/workspace/Leuko_abcd/activate_env.sh
+#     source /mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd/activate_env.sh
 
-WORKSPACE="/wynton/home/sugrue/loubard/workspace"
+WORKSPACE="/mnt/fac/CX500007_DS1/bardou"
 VENV="$WORKSPACE/leuko_env"
 
 # Load the CUDA module. Required on compute nodes; the warning is suppressed
@@ -21,10 +21,8 @@ source "$VENV/bin/activate"
 
 # Export convenience path variables so scripts can reference them without
 # hardcoding cluster-specific paths
-export LEUKO_WORKSPACE="$WORKSPACE/Leuko_abcd"
-export ABCD_TABULATED="/wynton/group/abcd/6.1/tabulated"
-export ABCD_IMAGING="/wynton/group/abcd/6.0/imaging/derivatives/mproc"
-export ABCD_CONCAT="/wynton/group/abcd/6.1/concat"
+export LEUKO_WORKSPACE="$WORKSPACE/leukoaraiosis-detection/Leuko_abcd"
+export ABCD_IMAGING="/mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc"
 
 echo "Environment activated"
 echo "  Python : $(python --version 2>&1 | cut -d' ' -f2)"
