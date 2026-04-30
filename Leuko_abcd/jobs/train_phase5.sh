@@ -5,16 +5,21 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
-#SBATCH --output=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/phase5_%j.out
-#SBATCH --error=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/phase5_%j.err
+#SBATCH --output=logs/phase5_%j.out
+#SBATCH --error=logs/phase5_%j.err
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+WORKSPACE="/mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd"
 
 # Edit these two variables before submitting
 CHECKPOINT="runs/phase3_YYYYMMDD_HHMMSS/best_model.pt"   # path to Phase 3 checkpoint
 HEATMAP_DIR="heatmaps/gradcam_YYYYMMDD"                   # path to Phase 4 heatmap output
 
-source /wynton/home/sugrue/loubard/workspace/Leuko_abcd/activate_env.sh
-cd /wynton/home/sugrue/loubard/workspace/Leuko_abcd
+source "$WORKSPACE/activate_env.sh"
+cd "$WORKSPACE"
+mkdir -p logs
 
+# ── Run ───────────────────────────────────────────────────────────────────────
 python phase5_pseudomask.py all \
     --heatmap_dir  "$HEATMAP_DIR" \
     --mask_dir     heatmaps/pseudo_masks \

@@ -5,15 +5,20 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=12:00:00
-#SBATCH --output=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/gradcam_%j.out
-#SBATCH --error=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/gradcam_%j.err
+#SBATCH --output=logs/gradcam_%j.out
+#SBATCH --error=logs/gradcam_%j.err
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+WORKSPACE="/mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd"
 
 # Edit this variable before submitting: fill in the path to your best_model.pt
 CHECKPOINT="runs/phase3_YYYYMMDD_HHMMSS/best_model.pt"
 
-source /wynton/home/sugrue/loubard/workspace/Leuko_abcd/activate_env.sh
-cd /wynton/home/sugrue/loubard/workspace/Leuko_abcd
+source "$WORKSPACE/activate_env.sh"
+cd "$WORKSPACE"
+mkdir -p logs
 
+# ── Run ───────────────────────────────────────────────────────────────────────
 OUT_DIR="heatmaps/gradcam_$(date +%Y%m%d)"
 
 python phase4_gradcam.py \

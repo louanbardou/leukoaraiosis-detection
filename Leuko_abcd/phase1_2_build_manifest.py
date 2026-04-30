@@ -27,7 +27,7 @@ data_root
     Root of the mproc imaging derivatives directory. Expected sub-structure:
         {data_root}/sub-{ID}/ses-{SESSION}/anat/sub-{ID}_ses-{SESSION}_run-01_T1w.nii.gz
         {data_root}/sub-{ID}/ses-{SESSION}/anat/sub-{ID}_ses-{SESSION}_run-01_T2w.nii.gz
-    On Wynton: /wynton/group/abcd/6.0/imaging/derivatives/mproc
+    On CX500007_DS1: /mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc
 
 Output
 ------
@@ -39,11 +39,11 @@ Usage
 -----
     python phase1_2_build_manifest.py \\
         --labels    labels.csv \\
-        --data_root /wynton/group/abcd/6.0/imaging/derivatives/mproc \\
+        --data_root /mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc \\
         --out_csv   manifest.csv
 
     # Or let the script read the data root from the environment variable
-    export ABCD_IMAGING=/wynton/group/abcd/6.0/imaging/derivatives/mproc
+    export ABCD_IMAGING=/mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc
     python phase1_2_build_manifest.py --labels labels.csv
 """
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         default=None,
         help=(
             "Root of the mproc imaging derivatives "
-            "(e.g. /wynton/group/abcd/6.0/imaging/derivatives/mproc). "
+            "(e.g. /mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc). "
             "Falls back to the $ABCD_IMAGING environment variable if not set."
         ),
     )

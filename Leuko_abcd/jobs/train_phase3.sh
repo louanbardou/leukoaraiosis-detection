@@ -5,14 +5,18 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=48:00:00
-#SBATCH --output=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/train_%j.out
-#SBATCH --error=/wynton/home/sugrue/loubard/workspace/Leuko_abcd/logs/train_%j.err
+#SBATCH --output=logs/train_%j.out
+#SBATCH --error=logs/train_%j.err
 
-source /wynton/home/sugrue/loubard/workspace/Leuko_abcd/activate_env.sh
-cd /wynton/home/sugrue/loubard/workspace/Leuko_abcd
+# ── Paths ─────────────────────────────────────────────────────────────────────
+WORKSPACE="/mnt/fac/CX500007_DS1/bardou/leukoaraiosis-detection/Leuko_abcd"
 
-RUN_DIR="runs/phase3_$(date +%Y%m%d_%H%M%S)"
+source "$WORKSPACE/activate_env.sh"
+cd "$WORKSPACE"
 mkdir -p logs
+
+# ── Run ───────────────────────────────────────────────────────────────────────
+RUN_DIR="runs/phase3_$(date +%Y%m%d_%H%M%S)"
 
 python phase3_train.py \
     --manifest    manifest.csv \
