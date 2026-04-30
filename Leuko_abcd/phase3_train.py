@@ -70,6 +70,7 @@ import pandas as pd
 import torch
 from libauc.losses import APLoss
 from libauc.optimizers import SOAP
+from libauc.sampler import DualSampler
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold
 from torch.utils.data import DataLoader, Dataset
@@ -196,10 +197,20 @@ def train(args) -> None:
     # Build data loaders.
     # persistent_workers=True keeps the worker processes alive between epochs,
     # avoiding the overhead of re-spawning them at each epoch start.
-    train_loader = DataLoader(
-        LeukoDataset(train_df, get_train_transforms()),
+    # DualSampler guarantees at least num_pos=1 positive per batch, which is
+    # required by APLoss (it asserts pos_mask.sum() > 0 every forward call).
+    train_dataset = LeukoDataset(train_df, get_train_transforms())
+    train_sampler = DualSampler(
+        train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        num_pos=1,
+        random_seed=args.seed,
+    )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        sampler=train_sampler,
+        shuffle=False,
         num_workers=4,
         pin_memory=True,
         persistent_workers=True,
