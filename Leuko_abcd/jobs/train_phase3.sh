@@ -24,7 +24,7 @@ echo "Python: $(which python)"
 RUN_DIR="$WORKSPACE/runs/phase3_$(date +%Y%m%d_%H%M%S)"
 
 python "$WORKSPACE/phase3_train.py" \
-    --manifest    "$WORKSPACE/data/manifest_balanced.csv" \
+    --manifest    "$WORKSPACE/data/manifest_full.csv" \
     --out_dir     "$RUN_DIR" \
     --epochs      100 \
     --batch_size  4 \

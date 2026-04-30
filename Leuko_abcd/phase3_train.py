@@ -65,6 +65,9 @@ import random
 import time
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend for cluster
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -329,9 +332,42 @@ def train(args) -> None:
             }, ckpt_path)
             print(f"  New best AUPREC={best_auprec:.4f}, checkpoint saved.")
 
-    pd.DataFrame(history).to_csv(out_dir / "training_history.csv", index=False)
+    hist_df = pd.DataFrame(history)
+    hist_df.to_csv(out_dir / "training_history.csv", index=False)
+    _plot_history(hist_df, out_dir, best_auprec)
     print(f"\nTraining complete. Best Val AUPREC: {best_auprec:.4f}")
     print(f"Checkpoint: {out_dir / 'best_model.pt'}")
+    print(f"Plots:      {out_dir / 'training_curves.png'}")
+
+
+def _plot_history(hist: pd.DataFrame, out_dir: Path, best_auprec: float) -> None:
+    epochs = hist["epoch"].values
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig.suptitle(f"Training curves  (best Val AUPREC={best_auprec:.4f})", fontsize=12)
+
+    # ── AUPREC ────────────────────────────────────────────────────────────────
+    ax = axes[0]
+    ax.plot(epochs, hist["train_auprec"], label="Train AUPREC", color="steelblue")
+    ax.plot(epochs, hist["val_auprec"],   label="Val AUPREC",   color="tomato")
+    ax.axhline(y=best_auprec, color="tomato", linestyle="--", linewidth=0.8, alpha=0.6)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("AUPREC")
+    ax.set_title("Average Precision (AUPREC)")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    # ── AUROC ─────────────────────────────────────────────────────────────────
+    ax = axes[1]
+    ax.plot(epochs, hist["val_auroc"], label="Val AUROC", color="seagreen")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("AUROC")
+    ax.set_title("ROC AUC (AUROC)")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(out_dir / "training_curves.png", dpi=120, bbox_inches="tight")
+    plt.close()
 
 
 if __name__ == "__main__":
