@@ -123,8 +123,11 @@ class LeukoDataset(Dataset):
             key        = f"{row['subject_id']}_{row['session']}.pt"
             cache_path = self.cache_dir / key
             if cache_path.exists():
-                image = torch.load(cache_path, weights_only=True)
-                return image, label, idx
+                try:
+                    image = torch.load(cache_path, weights_only=False)
+                    return image, label, idx
+                except Exception:
+                    cache_path.unlink(missing_ok=True)  # delete corrupted cache
             data  = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
             image = data["image"]
             torch.save(image, cache_path)
