@@ -20,17 +20,19 @@ mkdir -p "$WORKSPACE/logs"
 echo "Working directory: $(pwd)"
 echo "Python: $(which python)"
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+# ── Step 1: Build manifest from disk (disk-first, catches all labeled subjects) ──
+echo "Building manifest from disk..."
+python "$WORKSPACE/scripts/build_manifest_from_disk.py" --data_root "$ABCD_IMAGING" --labels_dir "$WORKSPACE/data" --out_csv "$WORKSPACE/data/manifest_full.csv"
+
+if [ ! -f "$WORKSPACE/data/manifest_full.csv" ]; then
+    echo "ERROR: manifest_full.csv was not created. Aborting."
+    exit 1
+fi
+echo "Manifest ready: $(wc -l < "$WORKSPACE/data/manifest_full.csv") rows"
+
+# ── Step 2: Train ─────────────────────────────────────────────────────────────
 RUN_DIR="$WORKSPACE/runs/phase3_$(date +%Y%m%d_%H%M%S)"
 
-python "$WORKSPACE/phase3_train.py" \
-    --manifest    "$WORKSPACE/data/manifest_full.csv" \
-    --out_dir     "$RUN_DIR" \
-    --epochs      100 \
-    --batch_size  4 \
-    --lr          1e-5 \
-    --feature_size 48 \
-    --fold        0 \
-    --seed        42
+python "$WORKSPACE/phase3_train.py" --manifest "$WORKSPACE/data/manifest_full.csv" --out_dir "$RUN_DIR" --epochs 100 --batch_size 4 --lr 1e-5 --feature_size 48 --fold 0 --seed 42
 
 echo "Done. Checkpoint in $RUN_DIR/best_model.pt"
