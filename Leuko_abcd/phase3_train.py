@@ -97,29 +97,40 @@ class LeukoDataset(Dataset):
         Rows from manifest.csv. Must contain t1w_path, t2w_path, label.
     transform : MONAI Compose
         The transform pipeline to apply to each sample.
+    cache_dir : str or None
+        If set, preprocessed tensors are saved as .pt files on first access
+        and reloaded from disk on subsequent epochs — avoids re-reading NIfTI
+        files from slow NFS storage every epoch.
     """
 
-    def __init__(self, df: pd.DataFrame, transform):
+    def __init__(self, df: pd.DataFrame, transform, cache_dir=None):
         self.df        = df.reset_index(drop=True)
         self.transform = transform
-        # DualSampler looks for a .targets attribute to identify class labels
         self.targets   = self.df["label"].astype(int).tolist()
+        self.cache_dir = Path(cache_dir) if cache_dir else None
+        if self.cache_dir:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def __len__(self) -> int:
         return len(self.df)
 
     def __getitem__(self, idx: int):
-        """
-        Load and transform one sample.
-
-        Returns
-        -------
-        image : torch.Tensor, shape (2, 96, 96, 96)
-        label : torch.Tensor, scalar float (0.0 or 1.0)
-        """
-        row  = self.df.iloc[idx]
-        data = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
+        row   = self.df.iloc[idx]
         label = torch.tensor(float(row["label"]), dtype=torch.float32)
+
+        if self.cache_dir is not None:
+            # Use subject+session as cache key so train/val sets can share cache
+            key        = f"{row['subject_id']}_{row['session']}.pt"
+            cache_path = self.cache_dir / key
+            if cache_path.exists():
+                image = torch.load(cache_path, weights_only=True)
+                return image, label, idx
+            data  = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
+            image = data["image"]
+            torch.save(image, cache_path)
+            return image, label, idx
+
+        data = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
         return data["image"], label, idx
 
 
@@ -204,7 +215,10 @@ def train(args) -> None:
     # avoiding the overhead of re-spawning them at each epoch start.
     # DualSampler guarantees at least num_pos=1 positive per batch, which is
     # required by APLoss (it asserts pos_mask.sum() > 0 every forward call).
-    train_dataset = LeukoDataset(train_df, get_train_transforms())
+    if args.cache_dir:
+        print(f"Cache dir: {args.cache_dir}  (epoch 1 will be slow — building cache)")
+
+    train_dataset = LeukoDataset(train_df, get_train_transforms(), cache_dir=args.cache_dir)
     train_sampler = DualSampler(
         train_dataset,
         batch_size=args.batch_size,
@@ -222,7 +236,7 @@ def train(args) -> None:
         persistent_workers=True,
     )
     val_loader = DataLoader(
-        LeukoDataset(val_df, get_val_transforms()),
+        LeukoDataset(val_df, get_val_transforms(), cache_dir=args.cache_dir),
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=4,
@@ -387,5 +401,11 @@ if __name__ == "__main__":
         help="Fold index for StratifiedGroupKFold (0-4). Default is 0.",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--cache_dir",
+        default=None,
+        help="Directory to cache preprocessed tensors (e.g. /mnt/scratch/user/lbardou/leuko_cache). "
+             "Epoch 1 is slow (builds cache), all subsequent epochs read from disk.",
+    )
     args = parser.parse_args()
     train(args)

@@ -33,6 +33,6 @@ echo "Manifest ready: $(wc -l < "$WORKSPACE/data/manifest_full.csv") rows"
 # ── Step 2: Train ─────────────────────────────────────────────────────────────
 RUN_DIR="$WORKSPACE/runs/phase3_$(date +%Y%m%d_%H%M%S)"
 
-python "$WORKSPACE/phase3_train.py" --manifest "$WORKSPACE/data/manifest_full.csv" --out_dir "$RUN_DIR" --epochs 100 --batch_size 4 --lr 1e-5 --feature_size 48 --fold 0 --seed 42
+python "$WORKSPACE/phase3_train.py" --manifest "$WORKSPACE/data/manifest_full.csv" --out_dir "$RUN_DIR" --epochs 50 --batch_size 4 --lr 1e-5 --feature_size 48 --fold 0 --seed 42 --cache_dir /mnt/scratch/user/lbardou/leuko_cache
 
 echo "Done. Checkpoint in $RUN_DIR/best_model.pt"
