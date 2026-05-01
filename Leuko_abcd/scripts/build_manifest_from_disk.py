@@ -51,28 +51,34 @@ EVENT_MAP = {
 }
 
 
-def load_all_labels(labels_dir: Path) -> dict:
+def load_all_labels(labels_dir: Path) -> tuple:
     """
-    Load all label sources and return a dict mapping (subject_id, session) → label.
+    Load all label sources.
 
-    subject_id is stored WITHOUT the 'sub-' prefix (bare 8-char ID).
-    Priority: labels.csv > all_labels_merged.csv > Baseline_healthy.csv
+    Returns
+    -------
+    label_map : dict  (bare_id, session) → label
+        For sources with per-session labels (labels.csv, all_labels_merged.csv).
+        Priority: labels.csv > all_labels_merged.csv
+
+    healthy_subjects : set of bare_id
+        Subjects in Baseline_healthy.csv — treated as label=0 for ANY session
+        on disk unless overridden by label_map.
     """
-    label_map = {}  # (bare_id, ses) → label
+    label_map = {}        # (bare_id, ses) → label  (session-specific)
+    healthy_subjects = set()  # bare_id only — covers all sessions
 
-    # ── 3. Baseline_healthy.csv (lowest priority) ────────────────────────────
+    # ── 3. Baseline_healthy.csv: subject-level label=0 for ALL sessions ───────
     bh_path = labels_dir / "Baseline_healthy.csv"
     if bh_path.exists():
         bh = pd.read_csv(bh_path)
-        bh["subject_id"] = bh["id_redcap"].str.replace("NDAR_INV", "")
-        bh["session"]    = bh["redcap_event_name"].map(EVENT_MAP).fillna("ses-00A")
-        for _, row in bh.iterrows():
-            label_map[(row["subject_id"], row["session"])] = 0
-        print(f"Baseline_healthy.csv  : {len(bh)} rows loaded")
+        bh["bare_id"] = bh["id_redcap"].str.replace("NDAR_INV", "")
+        healthy_subjects = set(bh["bare_id"])
+        print(f"Baseline_healthy.csv  : {len(healthy_subjects)} subjects (label=0 for all sessions)")
     else:
         print(f"WARNING: {bh_path} not found")
 
-    # ── 2. all_labels_merged.csv (medium priority) ───────────────────────────
+    # ── 2. all_labels_merged.csv (session-specific, medium priority) ─────────
     alm_path = labels_dir / "all_labels_merged.csv"
     if alm_path.exists():
         alm = pd.read_csv(alm_path)
@@ -86,7 +92,7 @@ def load_all_labels(labels_dir: Path) -> dict:
     else:
         print(f"WARNING: {alm_path} not found")
 
-    # ── 1. labels.csv (highest priority) ─────────────────────────────────────
+    # ── 1. labels.csv (session-specific, highest priority) ───────────────────
     lbl_path = labels_dir / "labels.csv"
     if lbl_path.exists():
         lbl = pd.read_csv(lbl_path)[["subject_id", "session", "label"]]
@@ -96,25 +102,30 @@ def load_all_labels(labels_dir: Path) -> dict:
     else:
         print(f"WARNING: {lbl_path} not found")
 
-    print(f"\nLabel map total: {len(label_map)} (subject, session) pairs\n")
-    return label_map
+    print(f"\nSession-specific label map : {len(label_map)} pairs")
+    print(f"Healthy subject pool       : {len(healthy_subjects)} subjects\n")
+    return label_map, healthy_subjects
 
 
-def scan_disk(data_root: Path, label_map: dict) -> pd.DataFrame:
+def scan_disk(data_root: Path, label_map: dict, healthy_subjects: set) -> pd.DataFrame:
     """
-    Walk data_root, find all sub-*/ses-*/anat/ directories with both T1w and T2w,
-    and cross-reference with label_map.
+    Walk data_root, find all sub-*/ses-*/anat/ with both T1w and T2w, assign labels.
+
+    Label lookup order for each (subject, session):
+      1. label_map[(bare_id, ses)]  — session-specific (labels.csv / all_labels_merged)
+      2. 0 if bare_id in healthy_subjects  — Baseline_healthy covers all sessions
+      3. skip (no label available)
     """
     rows = []
-    n_scanned  = 0
-    n_both     = 0
-    n_labeled  = 0
+    n_scanned   = 0
+    n_both      = 0
+    n_labeled   = 0
     n_unlabeled = 0
 
     for sub_dir in sorted(data_root.glob("sub-*")):
         bare_id = sub_dir.name[4:]  # strip 'sub-'
         for ses_dir in sorted(sub_dir.glob("ses-*")):
-            ses = ses_dir.name  # e.g. ses-00A
+            ses = ses_dir.name
             anat = ses_dir / "anat"
             if not anat.exists():
                 continue
@@ -125,16 +136,17 @@ def scan_disk(data_root: Path, label_map: dict) -> pd.DataFrame:
                 continue
             n_both += 1
 
-            # Look up label (try bare_id first, then with sub- prefix in case CSV uses it)
+            # 1. Session-specific label (labels.csv or all_labels_merged)
             label = label_map.get((bare_id, ses))
-            if label is None:
-                label = label_map.get((f"sub-{bare_id}", ses))
+            # 2. Subject-level healthy fallback (Baseline_healthy covers all sessions)
+            if label is None and bare_id in healthy_subjects:
+                label = 0
             if label is None:
                 n_unlabeled += 1
                 continue
             n_labeled += 1
             rows.append({
-                "subject_id": sub_dir.name,  # sub-XXXXXXXX
+                "subject_id": sub_dir.name,
                 "session":    ses,
                 "t1w_path":   str(t1_files[0]),
                 "t2w_path":   str(t2_files[0]),
@@ -171,8 +183,8 @@ def main():
     print(f"labels_dir : {labels_dir}")
     print(f"out_csv    : {out_csv}\n")
 
-    label_map = load_all_labels(labels_dir)
-    df = scan_disk(data_root, label_map)
+    label_map, healthy_subjects = load_all_labels(labels_dir)
+    df = scan_disk(data_root, label_map, healthy_subjects)
 
     if df.empty:
         print("ERROR: no rows found. Check data_root and labels_dir paths.")
