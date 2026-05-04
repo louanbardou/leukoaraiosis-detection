@@ -234,7 +234,7 @@ def train(args) -> None:
         batch_size=args.batch_size,
         sampler=train_sampler,
         shuffle=False,
-        num_workers=4,
+        num_workers=8,
         pin_memory=True,
         persistent_workers=True,
     )
@@ -242,7 +242,7 @@ def train(args) -> None:
         LeukoDataset(val_df, get_val_transforms(), cache_dir=args.cache_dir),
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=4,
+        num_workers=8,
         pin_memory=True,
     )
 
