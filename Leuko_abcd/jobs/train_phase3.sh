@@ -14,11 +14,11 @@ SCRIPT_DIR="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
 
 source "$SCRIPT_DIR/activate_env.sh"
 
-# W&B authentication — set via environment variable (never hardcode in scripts)
-# Run once on login node to store permanently:
-#   wandb login <your_api_key>
-# Or export here if ~/.netrc is not available on compute nodes:
-# export WANDB_API_KEY="<your_api_key>"
+# W&B — offline mode (compute nodes have no outbound internet on CHPC)
+# All run data is saved locally in the out_dir/wandb/ folder.
+# After the job finishes, sync from the login node:
+#   wandb sync <RUN_DIR>/wandb/offline-run-*
+export WANDB_MODE=offline
 # activate_env.sh overwrites WORKSPACE — use SCRIPT_DIR for our paths
 WORKSPACE="$SCRIPT_DIR"
 mkdir -p "$WORKSPACE/logs"
