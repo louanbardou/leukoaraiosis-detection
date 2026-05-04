@@ -49,15 +49,15 @@ inflating validation metrics.
 
 Usage
 -----
-    # From within the Leuko_abcd directory, with the environment activated:
     python phase3_train.py \\
-        --manifest    manifest.csv \\
+        --manifest    data/manifest_full.csv \\
         --out_dir     runs/phase3_$(date +%Y%m%d_%H%M%S) \\
-        --epochs      100 \\
+        --epochs      50 \\
         --batch_size  4 \\
-        --lr          1e-4 \\
+        --lr          1e-5 \\
         --feature_size 48 \\
-        --fold        0
+        --fold        0 \\
+        --wandb_project leuko-abcd
 """
 
 import argparse
@@ -66,15 +66,21 @@ import time
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend for cluster
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import wandb
 from libauc.losses import APLoss
 from libauc.optimizers import SOAP
 from libauc.sampler import DualSampler
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import (
+    average_precision_score,
+    roc_auc_score,
+    precision_recall_curve,
+    roc_curve,
+)
 from sklearn.model_selection import StratifiedGroupKFold
 from torch.utils.data import DataLoader, Dataset
 
@@ -119,7 +125,6 @@ class LeukoDataset(Dataset):
         label = torch.tensor(float(row["label"]), dtype=torch.float32)
 
         if self.cache_dir is not None:
-            # Use subject+session as cache key so train/val sets can share cache
             key        = f"{row['subject_id']}_{row['session']}.pt"
             cache_path = self.cache_dir / key
             if cache_path.exists():
@@ -127,7 +132,7 @@ class LeukoDataset(Dataset):
                     image = torch.load(cache_path, weights_only=False)
                     return image, label, idx
                 except Exception:
-                    cache_path.unlink(missing_ok=True)  # delete corrupted cache
+                    cache_path.unlink(missing_ok=True)
             data  = self.transform({"t1w": row["t1w_path"], "t2w": row["t2w_path"]})
             image = data["image"]
             torch.save(image, cache_path)
@@ -142,11 +147,6 @@ class LeukoDataset(Dataset):
 # -------------------------------------------------------------------------
 
 def set_seed(seed: int) -> None:
-    """
-    Set all random seeds for reproducibility across Python, NumPy, and PyTorch.
-    Fixed seeds ensure that the same StratifiedGroupKFold split is produced
-    across runs, which is important for comparing experiments.
-    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -154,28 +154,6 @@ def set_seed(seed: int) -> None:
 
 
 def get_fold_splits(df: pd.DataFrame, n_splits: int, fold: int, seed: int):
-    """
-    Return train and validation DataFrames for one StratifiedGroupKFold fold.
-
-    The groups are set to subject_id so that all sessions from one subject
-    go to either train or val, never both. Stratification preserves the
-    positive/negative ratio in each fold.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Full manifest with subject_id and label columns.
-    n_splits : int
-        Number of folds (5 recommended).
-    fold : int
-        Which fold to use as the validation set (0-indexed).
-    seed : int
-        Random seed passed to StratifiedGroupKFold.
-
-    Returns
-    -------
-    (train_df, val_df) : tuple of pd.DataFrame
-    """
     sgkf   = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     groups = df["subject_id"].values
     labels = df["label"].values
@@ -185,6 +163,43 @@ def get_fold_splits(df: pd.DataFrame, n_splits: int, fold: int, seed: int):
             return df.iloc[train_idx], df.iloc[val_idx]
 
     raise ValueError(f"Fold {fold} not found in {n_splits}-fold split.")
+
+
+# -------------------------------------------------------------------------
+# W&B logging helpers
+# -------------------------------------------------------------------------
+
+def wandb_pr_curve(labels, probs, split="val"):
+    """Log a Precision-Recall curve as a native W&B plot."""
+    precision, recall, _ = precision_recall_curve(labels, probs)
+    # W&B expects a table: each row is one (recall, precision) point
+    data = [[r, p] for r, p in zip(recall, precision)]
+    table = wandb.Table(data=data, columns=["recall", "precision"])
+    return wandb.plot.line(table, "recall", "precision",
+                           title=f"{split} Precision-Recall Curve")
+
+
+def wandb_roc_curve(labels, probs, split="val"):
+    """Log an ROC curve as a native W&B plot."""
+    fpr, tpr, _ = roc_curve(labels, probs)
+    data = [[f, t] for f, t in zip(fpr, tpr)]
+    table = wandb.Table(data=data, columns=["fpr", "tpr"])
+    return wandb.plot.line(table, "fpr", "tpr",
+                           title=f"{split} ROC Curve")
+
+
+def wandb_score_hist(labels, probs):
+    """Log overlapping histograms of predicted probabilities for pos vs neg."""
+    labels_arr = np.array(labels)
+    probs_arr  = np.array(probs)
+    pos_scores = probs_arr[labels_arr == 1].tolist()
+    neg_scores = probs_arr[labels_arr == 0].tolist()
+
+    data = [[s, "WMA (pos)"] for s in pos_scores] + \
+           [[s, "Healthy (neg)"] for s in neg_scores]
+    table = wandb.Table(data=data, columns=["score", "class"])
+    return wandb.plot.histogram(table, "score",
+                                title="Val score distribution (pos vs neg)")
 
 
 # -------------------------------------------------------------------------
@@ -199,88 +214,155 @@ def train(args) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
-    # Load manifest and report class balance
+    # ── Load manifest ──────────────────────────────────────────────────────
     df = pd.read_csv(args.manifest)
-    print(
-        f"Manifest: {len(df)} rows, "
-        f"{df['label'].sum()} positive ({df['label'].mean() * 100:.1f}%)"
-    )
+    n_pos   = int(df["label"].sum())
+    n_total = len(df)
+    print(f"Manifest: {n_total} rows, {n_pos} positive ({n_pos/n_total*100:.1f}%)")
 
     train_df, val_df = get_fold_splits(df, n_splits=5, fold=args.fold, seed=args.seed)
+    n_train_pos = int(train_df["label"].sum())
+    n_val_pos   = int(val_df["label"].sum())
     print(
         f"Fold {args.fold}: "
-        f"train={len(train_df)} ({train_df['label'].sum()} pos), "
-        f"val={len(val_df)} ({val_df['label'].sum()} pos)"
+        f"train={len(train_df)} ({n_train_pos} pos), "
+        f"val={len(val_df)} ({n_val_pos} pos)"
     )
 
-    # Build data loaders.
-    # persistent_workers=True keeps the worker processes alive between epochs,
-    # avoiding the overhead of re-spawning them at each epoch start.
-    # DualSampler guarantees at least num_pos=1 positive per batch, which is
-    # required by APLoss (it asserts pos_mask.sum() > 0 every forward call).
+    # ── W&B init ───────────────────────────────────────────────────────────
+    run = wandb.init(
+        project  = args.wandb_project,
+        entity   = args.wandb_entity or None,
+        name     = args.run_name or f"fold{args.fold}_lr{args.lr}_fs{args.feature_size}",
+        tags     = [f"fold{args.fold}", "swin-unetr", "aploss", "soap"],
+        config   = {
+            # hyperparameters
+            "model":         "LeukoBinaryClassifier",
+            "encoder":       "SwinUNETR",
+            "feature_size":  args.feature_size,
+            "loss":           "APLoss",
+            "optimizer":      "SOAP",
+            "lr":             args.lr,
+            "epoch_decay":    1e-6,
+            "weight_decay":   args.weight_decay,
+            "aploss_margin":  1.0,
+            "aploss_gamma":   0.9,
+            "dropout":        args.dropout,
+            "freeze_epochs":  args.freeze_epochs,
+            "batch_size":     args.batch_size,
+            "epochs":         args.epochs,
+            "grad_clip":      1.0,
+            # data
+            "manifest":      args.manifest,
+            "fold":          args.fold,
+            "n_folds":       5,
+            "n_train":       len(train_df),
+            "n_val":         len(val_df),
+            "n_train_pos":   n_train_pos,
+            "n_val_pos":     n_val_pos,
+            "pos_rate":      n_pos / n_total,
+            "seed":          args.seed,
+            "cache_dir":     args.cache_dir,
+        },
+        dir      = str(out_dir),
+        resume   = "allow",
+    )
+    print(f"W&B run: {run.url}")
+
+    # ── Data loaders ───────────────────────────────────────────────────────
     if args.cache_dir:
         print(f"Cache dir: {args.cache_dir}  (epoch 1 will be slow — building cache)")
 
     train_dataset = LeukoDataset(train_df, get_train_transforms(), cache_dir=args.cache_dir)
     train_sampler = DualSampler(
         train_dataset,
-        batch_size=args.batch_size,
-        num_pos=1,
-        sampling_rate=None,
-        random_seed=args.seed,
+        batch_size   = args.batch_size,
+        num_pos      = 1,
+        sampling_rate= None,
+        random_seed  = args.seed,
     )
     train_loader = DataLoader(
         train_dataset,
-        batch_size=args.batch_size,
-        sampler=train_sampler,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=True,
-        persistent_workers=True,
+        batch_size        = args.batch_size,
+        sampler           = train_sampler,
+        shuffle           = False,
+        num_workers       = 8,
+        pin_memory        = True,
+        persistent_workers= True,
     )
     val_loader = DataLoader(
         LeukoDataset(val_df, get_val_transforms(), cache_dir=args.cache_dir),
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=8,
-        pin_memory=True,
+        batch_size  = args.batch_size,
+        shuffle     = False,
+        num_workers = 8,
+        pin_memory  = True,
     )
 
-    # Build model
-    model = LeukoBinaryClassifier(feature_size=args.feature_size).to(device)
-    n_params = sum(p.numel() for p in model.parameters()) / 1e6
-    print(f"Model parameters: {n_params:.1f}M")
+    # ── Model ──────────────────────────────────────────────────────────────
+    model    = LeukoBinaryClassifier(feature_size=args.feature_size,
+                                     dropout=args.dropout).to(device)
+    n_params       = sum(p.numel() for p in model.parameters()) / 1e6
+    n_params_head  = sum(p.numel() for p in model.head.parameters()) / 1e6
+    print(f"Model parameters: {n_params:.1f}M  (head: {n_params_head:.2f}M)")
+    wandb.config.update({"n_params_M": round(n_params, 2)})
 
-    # APLoss needs to know the number of positive examples in the training set
-    # to correctly scale the margin term. pos_len is also used to initialise the
-    # surrogate moving-average buffer.
-    n_pos = int(train_df["label"].sum())
-    print(f"Positive prior: {n_pos / len(train_df):.4f} ({n_pos} positives)")
+    # Watch model: log gradients + weights every 50 batches
+    wandb.watch(model, log="gradients", log_freq=50)
 
-    loss_fn = APLoss(
-        data_len=len(train_df),
-        margin=1.0,
-        gamma=0.9,
-    )
+    # ── Progressive unfreezing ─────────────────────────────────────────────
+    # Phase A (epochs 1..freeze_epochs): freeze backbone, train head only.
+    #   Prevents 62M randomly-initialised encoder params from overfitting
+    #   on 3-4k samples before the head has learnt anything useful.
+    # Phase B (epochs freeze_epochs+1..end): unfreeze backbone with a 10x
+    #   lower LR so the pretrained features are fine-tuned gently.
+    def set_backbone_grad(requires_grad: bool):
+        for p in model.backbone.parameters():
+            p.requires_grad = requires_grad
 
-    # SOAP maintains an internal dual variable coupled to the APLoss objective.
-    # epoch_decay slowly reduces the regularisation strength over training.
+    set_backbone_grad(False)   # start frozen
+    print(f"Backbone frozen for first {args.freeze_epochs} epochs.")
+
+    # ── Loss & optimiser ───────────────────────────────────────────────────
+    # Only pass head params to SOAP initially; we reinitialise after unfreezing.
+    loss_fn   = APLoss(data_len=len(train_df), margin=1.0, gamma=0.9)
     optimizer = SOAP(
-        model.parameters(),
-        lr=args.lr,
-        epoch_decay=1e-6,
-        weight_decay=1e-5,
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr           = args.lr,
+        epoch_decay  = 1e-6,
+        weight_decay = args.weight_decay,
     )
 
     history     = []
     best_auprec = 0.0
+    global_step = 0
 
+    # ── Epoch loop ─────────────────────────────────────────────────────────
     for epoch in range(1, args.epochs + 1):
+
+        # ── Unfreeze backbone at freeze_epochs+1 ───────────────────────────
+        if epoch == args.freeze_epochs + 1:
+            set_backbone_grad(True)
+            # Reinitialise SOAP with two param groups:
+            #   - backbone: LR / 10  (gentle fine-tuning)
+            #   - head:     LR       (continues at base rate)
+            optimizer = SOAP(
+                [
+                    {"params": model.backbone.parameters(), "lr": args.lr / 10},
+                    {"params": model.head.parameters(),     "lr": args.lr},
+                ],
+                lr           = args.lr,
+                epoch_decay  = 1e-6,
+                weight_decay = args.weight_decay,
+            )
+            print(f"Epoch {epoch}: backbone unfrozen — encoder LR={args.lr/10:.2e}, head LR={args.lr:.2e}")
+            wandb.log({"event/backbone_unfrozen": epoch}, step=global_step)
         t0 = time.time()
 
-        # Training pass
+        # ── Train ──────────────────────────────────────────────────────────
         model.train()
         tr_logits, tr_labels = [], []
+        epoch_loss, epoch_grad_norm = 0.0, 0.0
+        n_batches = 0
 
         for images, batch_labels, batch_idx in train_loader:
             images       = images.to(device, non_blocking=True)
@@ -288,19 +370,30 @@ def train(args) -> None:
             batch_idx    = batch_idx.to(device, non_blocking=True)
 
             optimizer.zero_grad()
-            logits = model(images).squeeze(1)       # (B,)
+            logits = model(images).squeeze(1)
             loss   = loss_fn(logits, batch_labels, batch_idx)
             loss.backward()
 
-            # Gradient clipping prevents exploding gradients during the first
-            # few epochs when the model weights are far from optimum.
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+
+            # accumulate for epoch-level averages
+            epoch_loss      += loss.item()
+            epoch_grad_norm += grad_norm.item()
+            n_batches       += 1
+            global_step     += 1
 
             tr_logits.extend(logits.detach().cpu().float().tolist())
             tr_labels.extend(batch_labels.cpu().tolist())
 
-        # Validation pass (no gradients needed)
+            # ── per-batch metrics ──────────────────────────────────────────
+            wandb.log({
+                "batch/loss":      loss.item(),
+                "batch/grad_norm": grad_norm.item(),
+                "batch/step":      global_step,
+            }, step=global_step)
+
+        # ── Validate ────────────────────────────────────────────────────────
         model.eval()
         va_logits, va_labels = [], []
 
@@ -311,47 +404,120 @@ def train(args) -> None:
                 va_logits.extend(logits.cpu().float().tolist())
                 va_labels.extend(batch_labels.tolist())
 
-        # Convert logits to probabilities for metric computation
-        tr_probs = torch.sigmoid(torch.tensor(tr_logits)).numpy()
-        va_probs = torch.sigmoid(torch.tensor(va_logits)).numpy()
+        # ── Metrics ─────────────────────────────────────────────────────────
+        tr_probs  = torch.sigmoid(torch.tensor(tr_logits)).numpy()
+        va_probs  = torch.sigmoid(torch.tensor(va_logits)).numpy()
+        va_labels_arr = np.array(va_labels)
 
         tr_auprec = average_precision_score(tr_labels, tr_probs)
         va_auprec = average_precision_score(va_labels, va_probs)
         va_auroc  = roc_auc_score(va_labels, va_probs)
 
-        elapsed = time.time() - t0
+        elapsed     = time.time() - t0
+        avg_loss    = epoch_loss / n_batches
+        avg_gnorm   = epoch_grad_norm / n_batches
+        current_lr  = optimizer.param_groups[0]["lr"]
+
         print(
             f"Epoch {epoch:3d}/{args.epochs}  "
+            f"loss={avg_loss:.4f}  "
             f"Train AUPREC={tr_auprec:.4f}  "
             f"Val AUPREC={va_auprec:.4f}  "
             f"Val AUROC={va_auroc:.4f}  "
             f"{elapsed:.0f}s"
         )
 
+        # ── W&B epoch log ───────────────────────────────────────────────────
+        backbone_frozen = epoch <= args.freeze_epochs
+        log_dict = {
+            "epoch":                   epoch,
+            # losses & optimiser
+            "train/loss":              avg_loss,
+            "train/grad_norm":         avg_gnorm,
+            "train/lr":                current_lr,
+            "train/backbone_frozen":   int(backbone_frozen),
+            # AUPREC
+            "train/auprec":       tr_auprec,
+            "val/auprec":         va_auprec,
+            # AUROC
+            "val/auroc":          va_auroc,
+            # timing
+            "perf/epoch_time_s":  elapsed,
+        }
+
+        # PR curve, ROC curve, score histogram — logged every 5 epochs + last
+        if epoch % 5 == 0 or epoch == args.epochs:
+            log_dict["val/pr_curve"]      = wandb_pr_curve(va_labels, va_probs)
+            log_dict["val/roc_curve"]     = wandb_roc_curve(va_labels, va_probs)
+            log_dict["val/score_dist"]    = wandb_score_hist(va_labels, va_probs)
+
+        wandb.log(log_dict, step=global_step)
+
+        # ── History & checkpoint ────────────────────────────────────────────
         history.append({
-            "epoch": epoch,
+            "epoch":        epoch,
             "train_auprec": tr_auprec,
-            "val_auprec": va_auprec,
-            "val_auroc": va_auroc,
+            "val_auprec":   va_auprec,
+            "val_auroc":    va_auroc,
+            "loss":         avg_loss,
         })
 
-        # Save checkpoint whenever validation AUPREC improves
         if va_auprec > best_auprec:
             best_auprec = va_auprec
             ckpt_path   = out_dir / "best_model.pt"
             torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_auprec": va_auprec,
-                "val_auroc": va_auroc,
-                "args": vars(args),
+                "epoch":               epoch,
+                "model_state_dict":    model.state_dict(),
+                "optimizer_state_dict":optimizer.state_dict(),
+                "val_auprec":          va_auprec,
+                "val_auroc":           va_auroc,
+                "args":                vars(args),
             }, ckpt_path)
             print(f"  New best AUPREC={best_auprec:.4f}, checkpoint saved.")
 
+            # Log best checkpoint as W&B artifact
+            artifact = wandb.Artifact(
+                name=f"best-model-fold{args.fold}",
+                type="model",
+                metadata={"epoch": epoch, "val_auprec": va_auprec, "val_auroc": va_auroc},
+            )
+            artifact.add_file(str(ckpt_path))
+            wandb.log_artifact(artifact)
+
+            # Update run summary so the best value is always visible in the dashboard
+            wandb.run.summary["best_val_auprec"] = best_auprec
+            wandb.run.summary["best_val_auroc"]  = va_auroc
+            wandb.run.summary["best_epoch"]       = epoch
+
+    # ── End of training ─────────────────────────────────────────────────────
     hist_df = pd.DataFrame(history)
     hist_df.to_csv(out_dir / "training_history.csv", index=False)
     _plot_history(hist_df, out_dir, best_auprec)
+
+    # Log final training curves image to W&B
+    wandb.log({"charts/training_curves": wandb.Image(str(out_dir / "training_curves.png"))})
+
+    # Final PR / ROC on val set with best model weights
+    ckpt = torch.load(out_dir / "best_model.pt", weights_only=False)
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+    final_logits, final_labels = [], []
+    with torch.no_grad():
+        for images, batch_labels, _ in val_loader:
+            images = images.to(device, non_blocking=True)
+            logits = model(images).squeeze(1)
+            final_logits.extend(logits.cpu().float().tolist())
+            final_labels.extend(batch_labels.tolist())
+    final_probs = torch.sigmoid(torch.tensor(final_logits)).numpy()
+
+    wandb.log({
+        "final/pr_curve":   wandb_pr_curve(final_labels, final_probs, split="final"),
+        "final/roc_curve":  wandb_roc_curve(final_labels, final_probs, split="final"),
+        "final/score_dist": wandb_score_hist(final_labels, final_probs),
+    })
+
+    wandb.finish()
+
     print(f"\nTraining complete. Best Val AUPREC: {best_auprec:.4f}")
     print(f"Checkpoint: {out_dir / 'best_model.pt'}")
     print(f"Plots:      {out_dir / 'training_curves.png'}")
@@ -362,7 +528,6 @@ def _plot_history(hist: pd.DataFrame, out_dir: Path, best_auprec: float) -> None
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     fig.suptitle(f"Training curves  (best Val AUPREC={best_auprec:.4f})", fontsize=12)
 
-    # ── AUPREC ────────────────────────────────────────────────────────────────
     ax = axes[0]
     ax.plot(epochs, hist["train_auprec"], label="Train AUPREC", color="steelblue")
     ax.plot(epochs, hist["val_auprec"],   label="Val AUPREC",   color="tomato")
@@ -373,7 +538,6 @@ def _plot_history(hist: pd.DataFrame, out_dir: Path, best_auprec: float) -> None
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    # ── AUROC ─────────────────────────────────────────────────────────────────
     ax = axes[1]
     ax.plot(epochs, hist["val_auroc"], label="Val AUROC", color="seagreen")
     ax.set_xlabel("Epoch")
@@ -391,24 +555,32 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train the leukoaraiosis binary classifier (APLoss + SOAP)."
     )
-    parser.add_argument("--manifest",      default="manifest.csv")
-    parser.add_argument("--out_dir",       default="runs/phase3")
-    parser.add_argument("--epochs",        type=int,   default=100)
-    parser.add_argument("--batch_size",    type=int,   default=4)
-    parser.add_argument("--lr",            type=float, default=1e-4)
-    parser.add_argument("--feature_size",  type=int,   default=48)
-    parser.add_argument(
-        "--fold",
-        type=int,
-        default=0,
-        help="Fold index for StratifiedGroupKFold (0-4). Default is 0.",
-    )
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--cache_dir",
-        default=None,
-        help="Directory to cache preprocessed tensors (e.g. /mnt/scratch/user/lbardou/leuko_cache). "
-             "Epoch 1 is slow (builds cache), all subsequent epochs read from disk.",
-    )
+    # Data
+    parser.add_argument("--manifest",     default="manifest.csv")
+    parser.add_argument("--out_dir",      default="runs/phase3")
+    parser.add_argument("--cache_dir",    default=None,
+                        help="Directory to cache preprocessed tensors on scratch.")
+    # Training
+    parser.add_argument("--epochs",       type=int,   default=50)
+    parser.add_argument("--batch_size",   type=int,   default=4)
+    parser.add_argument("--lr",           type=float, default=1e-5)
+    parser.add_argument("--feature_size", type=int,   default=48)
+    parser.add_argument("--fold",         type=int,   default=0,
+                        help="Fold index for StratifiedGroupKFold (0-4).")
+    parser.add_argument("--seed",          type=int,   default=42)
+    parser.add_argument("--dropout",       type=float, default=0.5,
+                        help="Dropout in MLP head. Default 0.5 (was 0.3).")
+    parser.add_argument("--weight_decay",  type=float, default=1e-3,
+                        help="Weight decay for SOAP. Default 1e-3 (was 1e-5).")
+    parser.add_argument("--freeze_epochs", type=int,   default=15,
+                        help="Freeze backbone for this many epochs, then unfreeze with LR/10.")
+    # W&B
+    parser.add_argument("--wandb_project", default="leuko-abcd",
+                        help="W&B project name.")
+    parser.add_argument("--wandb_entity",  default=None,
+                        help="W&B entity (team or username). Defaults to your personal account.")
+    parser.add_argument("--run_name",      default=None,
+                        help="W&B run name. Auto-generated if not set.")
+
     args = parser.parse_args()
     train(args)
