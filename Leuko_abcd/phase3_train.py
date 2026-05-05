@@ -346,15 +346,12 @@ def train(args) -> None:
             #   - backbone: LR / 10  (gentle fine-tuning)
             #   - head:     LR       (continues at base rate)
             optimizer = SOAP(
-                [
-                    {"params": model.backbone.parameters(), "lr": args.lr / 10},
-                    {"params": model.head.parameters(),     "lr": args.lr},
-                ],
-                lr           = args.lr,
+                model.parameters(),
+                lr           = args.lr / 10,
                 epoch_decay  = 1e-6,
                 weight_decay = args.weight_decay,
             )
-            print(f"Epoch {epoch}: backbone unfrozen — encoder LR={args.lr/10:.2e}, head LR={args.lr:.2e}")
+            print(f"Epoch {epoch}: backbone unfrozen — LR={args.lr/10:.2e} (all params)")
             wandb.log({"event/backbone_unfrozen": epoch}, step=global_step)
         t0 = time.time()
 
