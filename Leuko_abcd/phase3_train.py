@@ -326,7 +326,7 @@ def train(args) -> None:
     # Only pass head params to SOAP initially; we reinitialise after unfreezing.
     loss_fn   = APLoss(data_len=len(train_df), margin=1.0, gamma=0.9)
     optimizer = SOAP(
-        filter(lambda p: p.requires_grad, model.parameters()),
+        [p for p in model.parameters() if p.requires_grad],
         lr           = args.lr,
         epoch_decay  = 1e-6,
         weight_decay = args.weight_decay,

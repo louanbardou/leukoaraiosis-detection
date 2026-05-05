@@ -6,8 +6,8 @@
 #SBATCH --mem=64G
 #SBATCH --time=48:00:00
 #SBATCH --chdir=/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
-#SBATCH --output=/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/logs/train_%j.out
-#SBATCH --error=/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/logs/train_%j.err
+#SBATCH --output=/mnt/scratch/user/lbardou/leuko_logs/train_%j.out
+#SBATCH --error=/mnt/scratch/user/lbardou/leuko_logs/train_%j.err
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd"
