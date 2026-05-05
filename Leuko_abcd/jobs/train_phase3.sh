@@ -37,7 +37,9 @@ fi
 echo "Manifest ready: $(wc -l < "$WORKSPACE/data/manifest_full.csv") rows"
 
 # ── Step 2: Train ─────────────────────────────────────────────────────────────
-RUN_DIR="$WORKSPACE/runs/phase3_$(date +%Y%m%d_%H%M%S)"
+# Save runs to scratch (home quota is too small for model checkpoints)
+RUN_DIR="/mnt/scratch/user/lbardou/leuko_runs/phase3_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$RUN_DIR"
 
 python "$WORKSPACE/phase3_train.py" \
     --manifest      "$WORKSPACE/data/manifest_full.csv" \
