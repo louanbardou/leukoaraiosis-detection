@@ -246,7 +246,8 @@ def train(args) -> None:
             "epoch_decay":    1e-6,
             "weight_decay":   args.weight_decay,
             "aploss_margin":  1.0,
-            "aploss_gamma":   0.9,
+            "aploss_gamma":   args.aploss_gamma,
+            "epoch_decay":    args.epoch_decay,
             "dropout":        args.dropout,
             "freeze_epochs":  args.freeze_epochs,
             "batch_size":     args.batch_size,
@@ -341,17 +342,18 @@ def train(args) -> None:
 
     # ── Loss & optimiser ───────────────────────────────────────────────────
     # Only pass head params to SOAP initially; we reinitialise after unfreezing.
-    loss_fn   = APLoss(data_len=len(train_df), margin=1.0, gamma=0.9)
+    loss_fn   = APLoss(data_len=len(train_df), margin=1.0, gamma=args.aploss_gamma)
     optimizer = SOAP(
         [p for p in model.parameters() if p.requires_grad],
         lr           = args.lr,
-        epoch_decay  = 1e-6,
+        epoch_decay  = args.epoch_decay,
         weight_decay = args.weight_decay,
     )
 
     history     = []
     best_auprec = 0.0
     global_step = 0
+    scheduler   = None   # created at unfreeze epoch
 
     # ── Epoch loop ─────────────────────────────────────────────────────────
     for epoch in range(1, args.epochs + 1):
@@ -359,16 +361,19 @@ def train(args) -> None:
         # ── Unfreeze backbone at freeze_epochs+1 ───────────────────────────
         if epoch == args.freeze_epochs + 1:
             set_backbone_grad(True)
-            # Reinitialise SOAP with two param groups:
-            #   - backbone: LR / 10  (gentle fine-tuning)
-            #   - head:     LR       (continues at base rate)
             optimizer = SOAP(
                 model.parameters(),
                 lr           = args.lr / 10,
-                epoch_decay  = 1e-6,
+                epoch_decay  = args.epoch_decay,
                 weight_decay = args.weight_decay,
             )
-            print(f"Epoch {epoch}: backbone unfrozen — LR={args.lr/10:.2e} (all params)")
+            # Cosine LR decay over the remaining fine-tuning epochs
+            n_finetune_epochs = args.epochs - args.freeze_epochs
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=n_finetune_epochs, eta_min=args.lr / 1000
+            )
+            print(f"Epoch {epoch}: backbone unfrozen — LR={args.lr/10:.2e}, "
+                  f"cosine decay over {n_finetune_epochs} epochs")
             wandb.log({"event/backbone_unfrozen": epoch}, step=global_step)
         t0 = time.time()
 
@@ -390,6 +395,8 @@ def train(args) -> None:
 
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
 
             # accumulate for epoch-level averages
             epoch_loss      += loss.item()
@@ -586,8 +593,12 @@ if __name__ == "__main__":
                         help="Dropout in MLP head. Default 0.5 (was 0.3).")
     parser.add_argument("--weight_decay",  type=float, default=1e-3,
                         help="Weight decay for SOAP. Default 1e-3 (was 1e-5).")
-    parser.add_argument("--freeze_epochs", type=int,   default=15,
+    parser.add_argument("--freeze_epochs", type=int,   default=10,
                         help="Freeze backbone for this many epochs, then unfreeze with LR/10.")
+    parser.add_argument("--aploss_gamma",  type=float, default=0.1,
+                        help="APLoss gamma (moving average coefficient). 0.1 recommended for classification.")
+    parser.add_argument("--epoch_decay",   type=float, default=1e-3,
+                        help="SOAP epoch_decay (L2 regularisation strength per epoch).")
     # Pretrained weights
     parser.add_argument("--pretrained_weights", default=None,
                         help="Path to SSL/BraTS pretrained SwinUNETR checkpoint (.pth). "

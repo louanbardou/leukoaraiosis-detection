@@ -57,15 +57,17 @@ python "$WORKSPACE/phase3_train.py" \
     --manifest           "$WORKSPACE/data/manifest_full.csv" \
     --out_dir            "$RUN_DIR" \
     --epochs             80 \
-    --batch_size         4 \
-    --lr                 5e-5 \
+    --batch_size         8 \
+    --lr                 1e-4 \
     --feature_size       48 \
     --fold               0 \
     --seed               42 \
     --cache_dir          /mnt/scratch/user/lbardou/leuko_cache \
     --dropout            0.4 \
     --weight_decay       5e-4 \
-    --freeze_epochs      20 \
+    --freeze_epochs      10 \
+    --aploss_gamma       0.1 \
+    --epoch_decay        1e-3 \
     --wandb_project      leuko-abcd \
     $PRETRAINED_ARG
 
