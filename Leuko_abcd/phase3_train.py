@@ -306,6 +306,23 @@ def train(args) -> None:
     print(f"Model parameters: {n_params:.1f}M  (head: {n_params_head:.2f}M)")
     wandb.config.update({"n_params_M": round(n_params, 2)})
 
+    # ── Pretrained weights (optional) ─────────────────────────────────────
+    if args.pretrained_weights:
+        ckpt = torch.load(args.pretrained_weights, map_location="cpu", weights_only=False)
+        # Checkpoints may store weights under different keys
+        state_dict = ckpt.get("state_dict", ckpt.get("model", ckpt))
+        # Strip common prefixes added by DataParallel or different wrapper names
+        state_dict = {
+            k.replace("module.", "").replace("swinViT.", "backbone.swinViT."): v
+            for k, v in state_dict.items()
+        }
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        print(
+            f"Pretrained weights loaded from {args.pretrained_weights}\n"
+            f"  missing={len(missing)}  unexpected={len(unexpected)}"
+        )
+        wandb.config.update({"pretrained_weights": args.pretrained_weights})
+
     # Watch model: log gradients + weights every 50 batches
     wandb.watch(model, log="gradients", log_freq=50)
 
@@ -571,6 +588,11 @@ if __name__ == "__main__":
                         help="Weight decay for SOAP. Default 1e-3 (was 1e-5).")
     parser.add_argument("--freeze_epochs", type=int,   default=15,
                         help="Freeze backbone for this many epochs, then unfreeze with LR/10.")
+    # Pretrained weights
+    parser.add_argument("--pretrained_weights", default=None,
+                        help="Path to SSL/BraTS pretrained SwinUNETR checkpoint (.pth). "
+                             "Loaded with strict=False — backbone weights transfer, "
+                             "head is always trained from scratch.")
     # W&B
     parser.add_argument("--wandb_project", default="leuko-abcd",
                         help="W&B project name.")

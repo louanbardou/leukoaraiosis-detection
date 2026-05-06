@@ -41,19 +41,32 @@ echo "Manifest ready: $(wc -l < "$WORKSPACE/data/manifest_full.csv") rows"
 RUN_DIR="/mnt/scratch/user/lbardou/leuko_runs/phase3_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$RUN_DIR"
 
+# SSL pretrained SwinUNETR weights (download once on login node if missing):
+#   wget -O "$SSL_WEIGHTS" \
+#     "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/ssl_pretrained_weights.pth"
+SSL_WEIGHTS="/mnt/scratch/user/lbardou/swin_ssl_pretrained.pth"
+if [ ! -f "$SSL_WEIGHTS" ]; then
+    echo "WARNING: SSL pretrained weights not found at $SSL_WEIGHTS — training from scratch"
+    PRETRAINED_ARG=""
+else
+    echo "SSL pretrained weights found: $SSL_WEIGHTS"
+    PRETRAINED_ARG="--pretrained_weights $SSL_WEIGHTS"
+fi
+
 python "$WORKSPACE/phase3_train.py" \
-    --manifest      "$WORKSPACE/data/manifest_full.csv" \
-    --out_dir       "$RUN_DIR" \
-    --epochs        60 \
-    --batch_size    4 \
-    --lr            1e-4 \
-    --feature_size  48 \
-    --fold          0 \
-    --seed          42 \
-    --cache_dir     /mnt/scratch/user/lbardou/leuko_cache \
-    --dropout       0.5 \
-    --weight_decay  1e-3 \
-    --freeze_epochs 15 \
-    --wandb_project leuko-abcd
+    --manifest           "$WORKSPACE/data/manifest_full.csv" \
+    --out_dir            "$RUN_DIR" \
+    --epochs             80 \
+    --batch_size         4 \
+    --lr                 5e-5 \
+    --feature_size       48 \
+    --fold               0 \
+    --seed               42 \
+    --cache_dir          /mnt/scratch/user/lbardou/leuko_cache \
+    --dropout            0.4 \
+    --weight_decay       5e-4 \
+    --freeze_epochs      20 \
+    --wandb_project      leuko-abcd \
+    $PRETRAINED_ARG
 
 echo "Done. Checkpoint in $RUN_DIR/best_model.pt"

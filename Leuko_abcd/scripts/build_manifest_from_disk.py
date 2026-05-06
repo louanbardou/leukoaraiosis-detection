@@ -92,15 +92,17 @@ def load_all_labels(labels_dir: Path) -> tuple:
     else:
         print(f"WARNING: {alm_path} not found")
 
-    # ── 1. labels.csv (session-specific, highest priority) ───────────────────
-    lbl_path = labels_dir / "labels.csv"
+    # ── 1. labels.csv / labels_corrected.csv (highest priority) ─────────────
+    lbl_path = labels_dir / "labels_corrected.csv"
+    if not lbl_path.exists():
+        lbl_path = labels_dir / "labels.csv"
     if lbl_path.exists():
         lbl = pd.read_csv(lbl_path)[["subject_id", "session", "label"]]
         for _, row in lbl.iterrows():
             label_map[(row["subject_id"], row["session"])] = int(row["label"])
-        print(f"labels.csv            : {len(lbl)} rows loaded")
+        print(f"{lbl_path.name:<30}: {len(lbl)} rows loaded")
     else:
-        print(f"WARNING: {lbl_path} not found")
+        print(f"WARNING: labels_corrected.csv and labels.csv not found")
 
     print(f"\nSession-specific label map : {len(label_map)} pairs")
     print(f"Healthy subject pool       : {len(healthy_subjects)} subjects\n")
