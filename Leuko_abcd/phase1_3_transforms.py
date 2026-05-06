@@ -7,7 +7,7 @@ This module defines two transform pipelines:
     get_train_transforms()   -- used during training; includes random augmentations
     get_val_transforms()     -- used during validation and inference; deterministic
 
-Both pipelines produce a single output tensor with shape (2, 96, 96, 96):
+Both pipelines produce a single output tensor with shape (2, 128, 128, 128):
     channel 0 : T1-weighted volume
     channel 1 : T2-weighted volume
 
@@ -28,30 +28,28 @@ scientific justification:
    modalities to a common 1 mm grid ensures that the spatial alignment between
    the T1 and T2 channels is voxel-exact after ConcatItems.
 
-3. Intensity normalisation (two-step)
-   Step A: ScaleIntensityRangePercentiles clips values outside the [1st, 99th]
-   percentile range to [0, 1]. This removes scanner-specific outlier intensities
-   (e.g. bright eyeballs, RF coil hotspots) that would otherwise dominate
-   gradient updates.
-   Step B: NormalizeIntensity applies per-channel Z-score normalisation. This
-   zero-centres and scales each modality independently, which is important
-   because T1 and T2 intensities live on completely different scales.
+3. CropForeground + Intensity normalisation
+   CropForeground removes the air voxels surrounding the skull first (based on
+   the T1w foreground mask). Normalisation is applied after cropping so that
+   Z-score statistics are computed on brain tissue only, not skull or scalp.
+   No percentile clipping is applied: preserving the full intensity range keeps
+   potentially hyperintense WMH voxels intact. Clipping at the 99th percentile
+   would suppress exactly the bright outliers relevant to leukoaraiosis detection.
+   NormalizeIntensity then applies per-channel Z-score, zero-centring and scaling
+   T1 and T2 independently.
 
-4. CropForeground + SpatialPad
-   CropForeground removes the air voxels surrounding the skull (based on the T1w
-   foreground mask). This reduces the patch size needed to cover the brain and
-   concentrates model capacity on brain tissue. SpatialPad then guarantees the
-   cropped volume is at least as large as the patch size; it adds zero-padding
-   at the borders if the brain is smaller than 96 voxels in any dimension
-   (uncommon but possible for very small or incomplete scans).
+4. SpatialPad
+   Guarantees the cropped volume is at least 128^3 in every dimension; adds
+   zero-padding at the borders for unusually small or incomplete scans.
 
-5. Patch extraction at 96x96x96
-   The Swin UNETR operates at this fixed spatial resolution. Training on full
-   volumes (typically ~180x220x180 voxels) would exceed GPU memory.
-   During training: a random patch is drawn (random_size=False means the patch
-   is always exactly 96^3; random_center=True means the centre is sampled
-   uniformly from valid positions).
-   During validation: the patch is always taken from the centre of the volume
+5. Patch extraction at 128x128x128
+   Training on full volumes (~180x220x180 voxels) would exceed GPU memory.
+   128^3 offers substantially better brain coverage than the previous 96^3:
+   the deepest Swin UNETR feature map goes from 3^3=27 to 4^3=64 spatial
+   positions, reducing the risk of small WMH being averaged away.
+   NOTE: increase to batch_size=4 if GPU OOM occurs (128^3 ~ 2.4x more memory).
+   During training: random patch centre sampled uniformly from valid positions.
+   During validation: patch always taken from the centre of the brain volume
    (random_center=False) for reproducibility.
 
 6. Spatial augmentations (training only)
@@ -89,14 +87,13 @@ from monai.transforms import (
     RandRotate90d,
     RandScaleIntensityd,
     RandSpatialCropd,
-    ScaleIntensityRangePercentilesd,
     Spacingd,
     SpatialPadd,
     ToTensord,
     Compose,
 )
 
-PATCH_SIZE   = (96, 96, 96)      # spatial dimensions fed to Swin UNETR
+PATCH_SIZE   = (128, 128, 128)   # spatial dimensions fed to Swin UNETR
 TARGET_VOXEL = (1.0, 1.0, 1.0)  # 1 mm isotropic resampling target
 
 
@@ -127,31 +124,22 @@ def get_train_transforms() -> Compose:
         # Bilinear interpolation is appropriate for continuous intensity volumes.
         Spacingd(keys=["t1w", "t2w"], pixdim=TARGET_VOXEL, mode=("bilinear", "bilinear")),
 
-        # Clip intensity outliers (top and bottom 1%) to [0, 1].
-        # This is done before Z-score normalisation to avoid outliers skewing
-        # the mean and standard deviation.
-        ScaleIntensityRangePercentilesd(
-            keys=["t1w", "t2w"],
-            lower=1,
-            upper=99,
-            b_min=0.0,
-            b_max=1.0,
-            clip=True,
-        ),
-
-        # Z-score normalisation per channel, computed only on non-zero (brain) voxels.
-        # channel_wise=True normalises T1 and T2 independently because they have
-        # different tissue contrast profiles.
-        NormalizeIntensityd(keys=["t1w", "t2w"], nonzero=True, channel_wise=True),
-
-        # Remove air background based on the T1w foreground mask. The T2w volume
-        # is cropped with the same bounding box (source_key="t1w") to keep alignment.
+        # Remove air background based on the T1w foreground mask BEFORE normalisation,
+        # so Z-score statistics are computed on brain tissue only (not skull/scalp).
         CropForegroundd(keys=["t1w", "t2w"], source_key="t1w"),
 
-        # Zero-pad if the cropped brain is smaller than 96^3 in any dimension.
+        # Z-score normalisation per channel, computed only on non-zero (brain) voxels.
+        # No percentile clipping: preserving the full intensity range keeps potentially
+        # hyperintense WMH voxels intact — clipping at the 99th percentile would
+        # suppress exactly the bright outliers we want the model to detect.
+        NormalizeIntensityd(keys=["t1w", "t2w"], nonzero=True, channel_wise=True),
+
+        # Zero-pad if the cropped brain is smaller than 128^3 in any dimension.
         SpatialPadd(keys=["t1w", "t2w"], spatial_size=PATCH_SIZE),
 
-        # Draw a random 96^3 patch from within the brain volume.
+        # Draw a random 128^3 patch from within the brain volume.
+        # Larger patch (128 vs 96) covers more of the brain per crop, reducing the
+        # chance of missing periventricular / subcortical WMH at training time.
         RandSpatialCropd(keys=["t1w", "t2w"], roi_size=PATCH_SIZE, random_size=False),
 
         # Randomly flip along the left-right axis (axial symmetry of the brain).
@@ -217,20 +205,12 @@ def get_val_transforms() -> Compose:
         EnsureChannelFirstd(keys=["t1w", "t2w"]),
         Orientationd(keys=["t1w", "t2w"], axcodes="RAS"),
         Spacingd(keys=["t1w", "t2w"], pixdim=TARGET_VOXEL, mode=("bilinear", "bilinear")),
-        ScaleIntensityRangePercentilesd(
-            keys=["t1w", "t2w"],
-            lower=1,
-            upper=99,
-            b_min=0.0,
-            b_max=1.0,
-            clip=True,
-        ),
-        NormalizeIntensityd(keys=["t1w", "t2w"], nonzero=True, channel_wise=True),
         CropForegroundd(keys=["t1w", "t2w"], source_key="t1w"),
+        NormalizeIntensityd(keys=["t1w", "t2w"], nonzero=True, channel_wise=True),
         SpatialPadd(keys=["t1w", "t2w"], spatial_size=PATCH_SIZE),
 
-        # Centre crop: random_center=False always extracts the central 96^3 patch.
-        # This makes validation metrics reproducible across runs.
+        # Centre crop: random_center=False always extracts the central 128^3 patch
+        # of the skull-stripped brain volume, making validation reproducible.
         RandSpatialCropd(
             keys=["t1w", "t2w"],
             roi_size=PATCH_SIZE,

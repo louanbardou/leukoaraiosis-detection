@@ -57,7 +57,7 @@ python "$WORKSPACE/phase3_train.py" \
     --manifest           "$WORKSPACE/data/manifest_full.csv" \
     --out_dir            "$RUN_DIR" \
     --epochs             80 \
-    --batch_size         8 \
+    --batch_size         4 \
     --lr                 1e-4 \
     --feature_size       48 \
     --fold               0 \
