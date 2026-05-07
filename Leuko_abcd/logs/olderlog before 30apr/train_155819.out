@@ -1,0 +1,33 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Device: cuda
+Manifest: 421 rows, 50 positive (11.9%)
+Fold 0: train=334 (39 pos), val=87 (11 pos)
+Model parameters: 62.4M
+Positive prior: 0.1168 (39 positives)
+Reducing learning rate to 0.00001 @ T=98!
+Updating regularizer @ T=98!
+Epoch   1/100  Train AUPREC=0.2640  Val AUPREC=0.2400  Val AUROC=0.6340  262s
+  New best AUPREC=0.2400, checkpoint saved.
+Reducing learning rate to 0.00000 @ T=196!
+Updating regularizer @ T=196!
+Epoch   2/100  Train AUPREC=0.2549  Val AUPREC=0.2239  Val AUROC=0.6388  256s
+Reducing learning rate to 0.00000 @ T=294!
+Updating regularizer @ T=294!
+Epoch   3/100  Train AUPREC=0.2642  Val AUPREC=0.2378  Val AUROC=0.6483  255s
+Reducing learning rate to 0.00000 @ T=392!
+Updating regularizer @ T=392!
+Epoch   4/100  Train AUPREC=0.2108  Val AUPREC=0.2382  Val AUROC=0.6495  257s
+Reducing learning rate to 0.00000 @ T=490!
+Updating regularizer @ T=490!
+Epoch   5/100  Train AUPREC=0.2282  Val AUPREC=0.2382  Val AUROC=0.6495  256s
+Reducing learning rate to 0.00000 @ T=588!
+Updating regularizer @ T=588!
+Epoch   6/100  Train AUPREC=0.2660  Val AUPREC=0.2382  Val AUROC=0.6495  254s
+Reducing learning rate to 0.00000 @ T=686!
+Updating regularizer @ T=686!

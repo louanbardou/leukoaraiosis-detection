@@ -1,0 +1,44 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Building manifest from disk...
+data_root  : /mnt/scratch/user/lbardou/abcd_leuko
+labels_dir : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data
+out_csv    : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+
+Baseline_healthy.csv  : 7202 subjects (label=0 for all sessions)
+all_labels_merged.csv : 14710 rows loaded
+labels.csv            : 15451 rows loaded
+
+Session-specific label map : 15451 pairs
+Healthy subject pool       : 7202 subjects
+
+Disk scan results:
+  Anat dirs scanned            : 421
+  Both T1w+T2w present         : 421
+  With label → kept            : 421
+  No label found → skipped     : 0
+
+Manifest summary:
+  Total rows       : 421
+  WMA  (label=1)   : 50  (11.9%)
+  Healthy (label=0): 371  (88.1%)
+  Unique subjects  : 387
+
+Breakdown by session:
+  ses-00A       total=   43  WMA=  15  healthy=   28
+  ses-02A       total=   37  WMA=  19  healthy=   18
+  ses-04A       total=  322  WMA=   8  healthy=  314
+  ses-06A       total=   19  WMA=   8  healthy=   11
+
+Saved → /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+Manifest ready: 422 rows
+Device: cuda
+Manifest: 421 rows, 50 positive (11.9%)
+Fold 0: train=334 (39 pos), val=87 (11 pos)
+Model parameters: 62.4M
+Positive prior: 0.1168 (39 positives)

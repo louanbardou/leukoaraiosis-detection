@@ -1,0 +1,36 @@
+/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/monai/utils/deprecate_utils.py:321: FutureWarning: monai.transforms.spatial.dictionary Orientationd.__init__:labels: Current default value of argument `labels=(('L', 'R'), ('P', 'A'), ('I', 'S'))` was changed in version None from `labels=(('L', 'R'), ('P', 'A'), ('I', 'S'))` to `labels=None`. Default value changed to None meaning that the transform now uses the 'space' of a meta-tensor, if applicable, to determine appropriate axis labels.
+  warn_deprecated(argname, msg, warning_category)
+/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/monai/utils/deprecate_utils.py:321: FutureWarning: monai.transforms.spatial.dictionary Orientationd.__init__:labels: Current default value of argument `labels=(('L', 'R'), ('P', 'A'), ('I', 'S'))` was changed in version None from `labels=(('L', 'R'), ('P', 'A'), ('I', 'S'))` to `labels=None`. Default value changed to None meaning that the transform now uses the 'space' of a meta-tensor, if applicable, to determine appropriate axis labels.
+  warn_deprecated(argname, msg, warning_category)
+Traceback (most recent call last):
+  File "/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/phase3_train.py", line 411, in <module>
+    train(args)
+  File "/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/phase3_train.py", line 282, in train
+    for images, batch_labels, batch_idx in train_loader:
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/dataloader.py", line 701, in __next__
+    data = self._next_data()
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/dataloader.py", line 1445, in _next_data
+    return self._process_data(data)
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/dataloader.py", line 1491, in _process_data
+    data.reraise()
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/_utils.py", line 715, in reraise
+    raise exception
+_pickle.UnpicklingError: Caught UnpicklingError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 351, in _worker_loop
+    data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/phase3_train.py", line 126, in __getitem__
+    image = torch.load(cache_path, weights_only=True)
+  File "/mnt/home/lbardou/leuko_env/lib64/python3.9/site-packages/torch/serialization.py", line 1359, in load
+    raise pickle.UnpicklingError(_get_wo_message(str(e))) from None
+_pickle.UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, [1mdo those steps only if you trust the source of the checkpoint[0m. 
+	(1) Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.
+	(2) Alternatively, to load with `weights_only=True` please check the recommended steps in the following error message.
+	WeightsUnpickler error: Unsupported global: GLOBAL numpy._core.multiarray._reconstruct was not an allowed global by default. Please use `torch.serialization.add_safe_globals([_reconstruct])` to allowlist this global if you trust this class/function.
+
+Check the documentation of torch.load to learn more about types accepted by default with weights_only https://pytorch.org/docs/stable/generated/torch.load.html.
+

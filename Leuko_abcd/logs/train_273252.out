@@ -1,0 +1,71 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Building manifest from disk...
+data_root  : /mnt/scratch/user/lbardou/abcd_leuko
+labels_dir : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data
+out_csv    : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+
+Baseline_healthy.csv  : 7202 subjects (label=0 for all sessions)
+all_labels_merged.csv : 14710 rows loaded
+labels.csv            : 15451 rows loaded
+
+Session-specific label map : 15451 pairs
+Healthy subject pool       : 7202 subjects
+
+Disk scan results:
+  Anat dirs scanned            : 4526
+  Both T1w+T2w present         : 4481
+  With label → kept            : 4466
+  No label found → skipped     : 15
+
+Manifest summary:
+  Total rows       : 4466
+  WMA  (label=1)   : 506  (11.3%)
+  Healthy (label=0): 3960  (88.7%)
+  Unique subjects  : 2708
+
+Breakdown by session:
+  ses-00A       total= 2696  WMA= 145  healthy= 2551
+  ses-02A       total=  179  WMA= 153  healthy=   26
+  ses-04A       total= 1481  WMA= 117  healthy= 1364
+  ses-06A       total=  110  WMA=  91  healthy=   19
+
+Saved → /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+Manifest ready: 4467 rows
+Device: cuda
+Manifest: 4466 rows, 506 positive (11.3%)
+Fold 0: train=3556 (424 pos), val=910 (82 pos)
+W&B run: None
+Cache dir: /mnt/scratch/user/lbardou/leuko_cache  (epoch 1 will be slow — building cache)
+Model parameters: 62.4M  (head: 0.20M)
+Backbone frozen for first 15 epochs.
+Epoch   1/60  loss=-0.0070  Train AUPREC=0.2664  Val AUPREC=0.0975  Val AUROC=0.5268  64s
+  New best AUPREC=0.0975, checkpoint saved.
+Epoch   2/60  loss=-0.0132  Train AUPREC=0.2732  Val AUPREC=0.1018  Val AUROC=0.5446  63s
+  New best AUPREC=0.1018, checkpoint saved.
+Epoch   3/60  loss=-0.0125  Train AUPREC=0.2818  Val AUPREC=0.1054  Val AUROC=0.5490  63s
+  New best AUPREC=0.1054, checkpoint saved.
+Epoch   4/60  loss=-0.0106  Train AUPREC=0.2876  Val AUPREC=0.1088  Val AUROC=0.5660  63s
+  New best AUPREC=0.1088, checkpoint saved.
+Epoch   5/60  loss=-0.0098  Train AUPREC=0.2857  Val AUPREC=0.1072  Val AUROC=0.5586  63s
+Epoch   6/60  loss=-0.0076  Train AUPREC=0.2860  Val AUPREC=0.1113  Val AUROC=0.5708  63s
+  New best AUPREC=0.1113, checkpoint saved.
+Epoch   7/60  loss=-0.0091  Train AUPREC=0.2981  Val AUPREC=0.1098  Val AUROC=0.5650  63s
+Epoch   8/60  loss=-0.0095  Train AUPREC=0.3006  Val AUPREC=0.1088  Val AUROC=0.5609  63s
+Epoch   9/60  loss=-0.0096  Train AUPREC=0.2958  Val AUPREC=0.1072  Val AUROC=0.5547  63s
+Epoch  10/60  loss=-0.0090  Train AUPREC=0.2972  Val AUPREC=0.1048  Val AUROC=0.5486  63s
+Epoch  11/60  loss=-0.0092  Train AUPREC=0.3093  Val AUPREC=0.1055  Val AUROC=0.5489  63s
+Epoch  12/60  loss=-0.0088  Train AUPREC=0.2932  Val AUPREC=0.1060  Val AUROC=0.5465  63s
+Epoch  13/60  loss=-0.0083  Train AUPREC=0.2945  Val AUPREC=0.1045  Val AUROC=0.5421  63s
+Epoch  14/60  loss=-0.0103  Train AUPREC=0.3088  Val AUPREC=0.1052  Val AUROC=0.5447  63s
+Epoch  15/60  loss=-0.0089  Train AUPREC=0.2995  Val AUPREC=0.1067  Val AUROC=0.5552  63s
+[1;34mwandb[0m: 
+[1;34mwandb[0m: You can sync this run to the cloud by running:
+[1;34mwandb[0m: [1mwandb sync /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/runs/phase3_20260504_141718/wandb/offline-run-20260504_141724-yrgmxopi[0m
+[1;34mwandb[0m: Find logs at: [1;35mruns/phase3_20260504_141718/wandb/offline-run-20260504_141724-yrgmxopi/logs[0m
+Done. Checkpoint in /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/runs/phase3_20260504_141718/best_model.pt

@@ -1,0 +1,6 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Done. Checkpoint in runs/phase3_20260429_184534/best_model.pt

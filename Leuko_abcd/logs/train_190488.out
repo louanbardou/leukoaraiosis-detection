@@ -1,0 +1,65 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Building manifest from disk...
+data_root  : /mnt/fac/CX500007_DS1/ABCD/6.1/imaging/derivatives/mproc
+labels_dir : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data
+out_csv    : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+
+Baseline_healthy.csv  : 7202 subjects (label=0 for all sessions)
+all_labels_merged.csv : 14710 rows loaded
+labels.csv            : 15451 rows loaded
+
+Session-specific label map : 15451 pairs
+Healthy subject pool       : 7202 subjects
+
+Disk scan results:
+  Anat dirs scanned            : 4526
+  Both T1w+T2w present         : 4481
+  With label → kept            : 4466
+  No label found → skipped     : 15
+
+Manifest summary:
+  Total rows       : 4466
+  WMA  (label=1)   : 506  (11.3%)
+  Healthy (label=0): 3960  (88.7%)
+  Unique subjects  : 2708
+
+Breakdown by session:
+  ses-00A       total= 2696  WMA= 145  healthy= 2551
+  ses-02A       total=  179  WMA= 153  healthy=   26
+  ses-04A       total= 1481  WMA= 117  healthy= 1364
+  ses-06A       total=  110  WMA=  91  healthy=   19
+
+Saved → /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+Manifest ready: 4467 rows
+Device: cuda
+Manifest: 4466 rows, 506 positive (11.3%)
+Fold 0: train=3556 (424 pos), val=910 (82 pos)
+Model parameters: 62.4M
+Positive prior: 0.1192 (424 positives)
+Epoch   1/100  Train AUPREC=0.2619  Val AUPREC=0.0761  Val AUROC=0.4059  2923s
+  New best AUPREC=0.0761, checkpoint saved.
+Epoch   2/100  Train AUPREC=0.2680  Val AUPREC=0.0810  Val AUROC=0.4216  2888s
+  New best AUPREC=0.0810, checkpoint saved.
+Epoch   3/100  Train AUPREC=0.2636  Val AUPREC=0.1170  Val AUROC=0.5609  2863s
+  New best AUPREC=0.1170, checkpoint saved.
+Epoch   4/100  Train AUPREC=0.2706  Val AUPREC=0.0995  Val AUROC=0.5353  2891s
+Epoch   5/100  Train AUPREC=0.2599  Val AUPREC=0.1041  Val AUROC=0.5377  2856s
+Epoch   6/100  Train AUPREC=0.2749  Val AUPREC=0.1034  Val AUROC=0.5394  2927s
+Epoch   7/100  Train AUPREC=0.2708  Val AUPREC=0.0849  Val AUROC=0.4697  2817s
+Epoch   8/100  Train AUPREC=0.2766  Val AUPREC=0.0891  Val AUROC=0.4929  2885s
+Epoch   9/100  Train AUPREC=0.2732  Val AUPREC=0.0876  Val AUROC=0.4865  2799s
+Epoch  10/100  Train AUPREC=0.2789  Val AUPREC=0.0927  Val AUROC=0.5100  2740s
+Epoch  11/100  Train AUPREC=0.2740  Val AUPREC=0.0837  Val AUROC=0.4823  2816s
+Epoch  12/100  Train AUPREC=0.2957  Val AUPREC=0.0894  Val AUROC=0.4771  2743s
+Epoch  13/100  Train AUPREC=0.2841  Val AUPREC=0.0836  Val AUROC=0.4696  2786s
+Epoch  14/100  Train AUPREC=0.3062  Val AUPREC=0.0852  Val AUROC=0.4838  2746s
+Epoch  15/100  Train AUPREC=0.2828  Val AUPREC=0.0891  Val AUROC=0.4780  2783s
+Epoch  16/100  Train AUPREC=0.2805  Val AUPREC=0.0859  Val AUROC=0.4785  2742s
+Epoch  17/100  Train AUPREC=0.2825  Val AUPREC=0.0962  Val AUROC=0.5128  2785s
+Epoch  18/100  Train AUPREC=0.3076  Val AUPREC=0.0810  Val AUROC=0.4600  2772s

@@ -1,0 +1,5 @@
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/remote/lbardou/.netrc.
+wandb: Network error (ProxyError), entering retry loop.
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+wandb: Network error (ProxyError), entering retry loop.
+slurmstepd-ggpu4-01: error: *** JOB 273246 ON ggpu4-01 CANCELLED AT 2026-05-04T14:16:46 ***

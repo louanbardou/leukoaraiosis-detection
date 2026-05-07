@@ -1,0 +1,105 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Building manifest from disk...
+data_root  : /mnt/scratch/user/lbardou/abcd_leuko
+labels_dir : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data
+out_csv    : /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+
+Baseline_healthy.csv  : 7202 subjects (label=0 for all sessions)
+all_labels_merged.csv : 14710 rows loaded
+labels.csv            : 15451 rows loaded
+
+Session-specific label map : 15451 pairs
+Healthy subject pool       : 7202 subjects
+
+Disk scan results:
+  Anat dirs scanned            : 4526
+  Both T1w+T2w present         : 4481
+  With label → kept            : 4466
+  No label found → skipped     : 15
+
+Manifest summary:
+  Total rows       : 4466
+  WMA  (label=1)   : 506  (11.3%)
+  Healthy (label=0): 3960  (88.7%)
+  Unique subjects  : 2708
+
+Breakdown by session:
+  ses-00A       total= 2696  WMA= 145  healthy= 2551
+  ses-02A       total=  179  WMA= 153  healthy=   26
+  ses-04A       total= 1481  WMA= 117  healthy= 1364
+  ses-06A       total=  110  WMA=  91  healthy=   19
+
+Saved → /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/data/manifest_full.csv
+Manifest ready: 4467 rows
+Device: cuda
+Manifest: 4466 rows, 506 positive (11.3%)
+Fold 0: train=3556 (424 pos), val=910 (82 pos)
+Cache dir: /mnt/scratch/user/lbardou/leuko_cache  (epoch 1 will be slow — building cache)
+Model parameters: 62.4M
+Positive prior: 0.1192 (424 positives)
+Epoch   1/50  Train AUPREC=0.2690  Val AUPREC=0.0980  Val AUROC=0.5313  1557s
+  New best AUPREC=0.0980, checkpoint saved.
+Epoch   2/50  Train AUPREC=0.2683  Val AUPREC=0.0960  Val AUROC=0.5270  192s
+Epoch   3/50  Train AUPREC=0.2917  Val AUPREC=0.0995  Val AUROC=0.5490  191s
+  New best AUPREC=0.0995, checkpoint saved.
+Epoch   4/50  Train AUPREC=0.3059  Val AUPREC=0.0961  Val AUROC=0.5266  191s
+Epoch   5/50  Train AUPREC=0.3076  Val AUPREC=0.0888  Val AUROC=0.5019  191s
+Epoch   6/50  Train AUPREC=0.3355  Val AUPREC=0.0821  Val AUROC=0.4761  191s
+Epoch   7/50  Train AUPREC=0.3690  Val AUPREC=0.0988  Val AUROC=0.5443  190s
+Epoch   8/50  Train AUPREC=0.4419  Val AUPREC=0.0900  Val AUROC=0.5204  190s
+Epoch   9/50  Train AUPREC=0.5237  Val AUPREC=0.1014  Val AUROC=0.5412  189s
+  New best AUPREC=0.1014, checkpoint saved.
+Epoch  10/50  Train AUPREC=0.6792  Val AUPREC=0.0985  Val AUROC=0.5396  187s
+Epoch  11/50  Train AUPREC=0.8168  Val AUPREC=0.0954  Val AUROC=0.5387  186s
+Epoch  12/50  Train AUPREC=0.8973  Val AUPREC=0.1010  Val AUROC=0.5564  186s
+Epoch  13/50  Train AUPREC=0.9185  Val AUPREC=0.1172  Val AUROC=0.5710  186s
+  New best AUPREC=0.1172, checkpoint saved.
+Epoch  14/50  Train AUPREC=0.9156  Val AUPREC=0.0974  Val AUROC=0.5406  185s
+Epoch  15/50  Train AUPREC=0.9225  Val AUPREC=0.1049  Val AUROC=0.5708  185s
+Epoch  16/50  Train AUPREC=0.9428  Val AUPREC=0.0978  Val AUROC=0.5533  186s
+Epoch  17/50  Train AUPREC=0.9591  Val AUPREC=0.1006  Val AUROC=0.5558  185s
+Epoch  18/50  Train AUPREC=0.9335  Val AUPREC=0.0956  Val AUROC=0.5508  186s
+Epoch  19/50  Train AUPREC=0.9370  Val AUPREC=0.1087  Val AUROC=0.5688  186s
+Epoch  20/50  Train AUPREC=0.9689  Val AUPREC=0.1063  Val AUROC=0.5567  185s
+Epoch  21/50  Train AUPREC=0.9594  Val AUPREC=0.0956  Val AUROC=0.5088  185s
+Epoch  22/50  Train AUPREC=0.9627  Val AUPREC=0.0931  Val AUROC=0.5299  185s
+Epoch  23/50  Train AUPREC=0.9665  Val AUPREC=0.1152  Val AUROC=0.5552  185s
+Epoch  24/50  Train AUPREC=0.9717  Val AUPREC=0.0965  Val AUROC=0.5299  185s
+Epoch  25/50  Train AUPREC=0.9795  Val AUPREC=0.1024  Val AUROC=0.5763  185s
+Epoch  26/50  Train AUPREC=0.9734  Val AUPREC=0.1062  Val AUROC=0.5811  185s
+Epoch  27/50  Train AUPREC=0.9618  Val AUPREC=0.0972  Val AUROC=0.5554  186s
+Epoch  28/50  Train AUPREC=0.9886  Val AUPREC=0.1012  Val AUROC=0.5646  185s
+Epoch  29/50  Train AUPREC=0.9565  Val AUPREC=0.1228  Val AUROC=0.5868  185s
+  New best AUPREC=0.1228, checkpoint saved.
+Epoch  30/50  Train AUPREC=0.9592  Val AUPREC=0.1098  Val AUROC=0.5893  185s
+Epoch  31/50  Train AUPREC=0.9856  Val AUPREC=0.1109  Val AUROC=0.5864  185s
+Epoch  32/50  Train AUPREC=0.9779  Val AUPREC=0.1156  Val AUROC=0.5762  185s
+Epoch  33/50  Train AUPREC=0.9776  Val AUPREC=0.0927  Val AUROC=0.5257  185s
+Epoch  34/50  Train AUPREC=0.9687  Val AUPREC=0.1002  Val AUROC=0.5433  185s
+Epoch  35/50  Train AUPREC=0.9775  Val AUPREC=0.0944  Val AUROC=0.5333  185s
+Epoch  36/50  Train AUPREC=0.9658  Val AUPREC=0.0955  Val AUROC=0.5425  185s
+Epoch  37/50  Train AUPREC=0.9686  Val AUPREC=0.0977  Val AUROC=0.5099  185s
+Epoch  38/50  Train AUPREC=0.9800  Val AUPREC=0.0931  Val AUROC=0.4861  185s
+Epoch  39/50  Train AUPREC=0.9926  Val AUPREC=0.0964  Val AUROC=0.5304  185s
+Epoch  40/50  Train AUPREC=0.9421  Val AUPREC=0.1004  Val AUROC=0.5480  185s
+Epoch  41/50  Train AUPREC=0.9957  Val AUPREC=0.1069  Val AUROC=0.5504  185s
+Epoch  42/50  Train AUPREC=0.9870  Val AUPREC=0.1210  Val AUROC=0.5885  185s
+Epoch  43/50  Train AUPREC=0.9893  Val AUPREC=0.1088  Val AUROC=0.5691  185s
+Epoch  44/50  Train AUPREC=0.9715  Val AUPREC=0.1197  Val AUROC=0.5895  185s
+Epoch  45/50  Train AUPREC=0.9767  Val AUPREC=0.1010  Val AUROC=0.5370  185s
+Epoch  46/50  Train AUPREC=0.9835  Val AUPREC=0.0996  Val AUROC=0.5480  185s
+Epoch  47/50  Train AUPREC=0.9831  Val AUPREC=0.1062  Val AUROC=0.5404  185s
+Epoch  48/50  Train AUPREC=0.9782  Val AUPREC=0.1123  Val AUROC=0.5696  185s
+Epoch  49/50  Train AUPREC=0.9895  Val AUPREC=0.1015  Val AUROC=0.5511  185s
+Epoch  50/50  Train AUPREC=0.9835  Val AUPREC=0.1012  Val AUROC=0.5583  185s
+
+Training complete. Best Val AUPREC: 0.1228
+Checkpoint: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/runs/phase3_20260504_104100/best_model.pt
+Plots:      /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/runs/phase3_20260504_104100/training_curves.png
+Done. Checkpoint in /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd/runs/phase3_20260504_104100/best_model.pt

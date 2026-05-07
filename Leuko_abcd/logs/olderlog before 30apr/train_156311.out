@@ -1,0 +1,21 @@
+[warn] cuda/12.5 module not available, skipping
+Environment activated
+  Python : 3.9.21
+  PyTorch: 2.5.1+cu124
+  GPU    : NVIDIA H100 NVL
+Working directory: /home/remote/lbardou/leukoaraiosis-detection/Leuko_abcd
+Python: /mnt/home/lbardou/leuko_env/bin/python
+Device: cuda
+Manifest: 421 rows, 50 positive (11.9%)
+Fold 0: train=334 (39 pos), val=87 (11 pos)
+Model parameters: 62.4M
+Positive prior: 0.1168 (39 positives)
+Epoch   1/100  Train AUPREC=0.2504  Val AUPREC=0.2961  Val AUROC=0.6244  260s
+  New best AUPREC=0.2961, checkpoint saved.
+Epoch   2/100  Train AUPREC=0.2786  Val AUPREC=0.3204  Val AUROC=0.7033  253s
+  New best AUPREC=0.3204, checkpoint saved.
+Epoch   3/100  Train AUPREC=0.2484  Val AUPREC=0.2555  Val AUROC=0.6962  254s
+Epoch   4/100  Train AUPREC=0.2770  Val AUPREC=0.2382  Val AUROC=0.6531  253s
+Epoch   5/100  Train AUPREC=0.2560  Val AUPREC=0.2468  Val AUROC=0.6854  253s
+Epoch   6/100  Train AUPREC=0.2625  Val AUPREC=0.1152  Val AUROC=0.4211  252s
+Epoch   7/100  Train AUPREC=0.2689  Val AUPREC=0.1590  Val AUROC=0.5407  252s
